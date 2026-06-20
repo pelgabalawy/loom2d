@@ -1,0 +1,39 @@
+# ── Build output ──────────────────────────────────────────────────────────────
+/build/
+/dist/
+/_deps/
+*.o
+*.obj
+*.a
+*.lib
+*.exp
+*.ilk
+*.pdb
+
+# ── Native modules + shared libs copied into the package ──────────────────────
+# These are build artifacts — rebuilt per-platform via build.ps1 / build.sh.
+python/loom2d/*.pyd
+python/loom2d/*.so
+python/loom2d/*.dylib
+python/loom2d/*.dll
+*.so.*
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+build_wheel/
+wheelhouse/
+
+# ── Generated example assets (created at runtime by the demos) ────────────────
+examples/flappy/assets/
+
+# ── Editor / OS cruft ─────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp

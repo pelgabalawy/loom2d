@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
+  "name": "loom2d",
+  "version": "0.1.0",
+  "dependencies": [
+    "sdl3",
+    "box2d",
+    "glm",
+    "freetype"
+  ]
+}
