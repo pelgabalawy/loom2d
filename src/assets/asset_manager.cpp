@@ -2,25 +2,16 @@
 
 namespace loom {
 
-AssetManager::AssetManager(SDL_Renderer* renderer) : m_renderer(renderer) {
-    init_caches();
-}
-
-void AssetManager::set_renderer(SDL_Renderer* renderer) {
-    m_renderer = renderer;
-    init_caches();
-}
-
 void AssetManager::init_caches() {
     m_textures = std::make_unique<AssetCache<Texture>>(
-        [this](const std::string& path) {
-            return Texture::load(m_renderer, path);
+        [](const std::string& path) {
+            return Texture::load(path);
         });
 }
 
 std::shared_ptr<Texture> AssetManager::texture(const std::string& path) {
     if (!m_textures)
-        throw std::runtime_error("AssetManager not initialized with a renderer");
+        throw std::runtime_error("AssetManager not initialized");
     return m_textures->get(path);
 }
 

@@ -37,6 +37,11 @@ public:
     bool auto_physics = true;
     bool auto_scene   = true;
 
+    // Set to false from on_update() to exit the game loop programmatically.
+    bool running = true;
+    // Number of draw calls emitted in the previous frame (diagnostics).
+    int  last_draw_calls = 0;
+
     virtual void on_start()          {}
     virtual void on_update(float dt) { (void)dt; }
     virtual void on_draw()           {}
@@ -68,9 +73,8 @@ public:
 
 void run_game(Game& game, const std::string& title, int width, int height) {
     loom::Window   window(title, width, height);
-    loom::Renderer renderer(window);
+    loom::Renderer renderer(window); // sets up sokol_gfx
 
-    game.assets.set_renderer(renderer.sdl_renderer());
     game.scene.camera.set_viewport(width, height);
     // Default: world (0,0) = screen top-left, matching pixel/screen coordinates
     game.scene.camera.set_position(loom::Vec2(width * 0.5f, height * 0.5f));
@@ -79,7 +83,7 @@ void run_game(Game& game, const std::string& title, int width, int height) {
 
     Uint64 last_ticks = SDL_GetTicks();
 
-    while (window.poll_events()) {
+    while (game.running && window.poll_events()) {
         loom::Input::update();
 
         Uint64 now = SDL_GetTicks();
@@ -96,6 +100,8 @@ void run_game(Game& game, const std::string& title, int width, int height) {
         if (game.auto_scene) game.scene.draw(renderer);
         game.on_draw();
         renderer.end_frame();
+
+        game.last_draw_calls = renderer.batcher().draw_calls();
     }
 
     game.on_stop();
@@ -374,6 +380,8 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_readwrite("scene",        &Game::scene)
         .def_readwrite("auto_physics", &Game::auto_physics)
         .def_readwrite("auto_scene",   &Game::auto_scene)
+        .def_readwrite("running",      &Game::running)
+        .def_property_readonly("last_draw_calls", [](Game& g) { return g.last_draw_calls; })
         .def_property_readonly("physics", [](Game& g) -> loom::PhysicsWorld& { return g.physics; },
                                py::return_value_policy::reference_internal)
         .def_property_readonly("audio",   [](Game& g) -> loom::AudioEngine&  { return g.audio;   },

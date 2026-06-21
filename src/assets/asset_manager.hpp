@@ -51,19 +51,15 @@ private:
 // High-level manager that wraps per-type caches.
 class AssetManager {
 public:
-    AssetManager() = default;
-    explicit AssetManager(SDL_Renderer* renderer);
+    AssetManager() { init_caches(); }
 
-    void set_renderer(SDL_Renderer* renderer);
-
-    // Texture cache (requires renderer)
+    // Texture cache (textures upload to the GPU, so a Renderer must exist first)
     std::shared_ptr<Texture> texture(const std::string& path);
 
     // Evict everything (useful before hot-reload)
     void clear();
 
 private:
-    SDL_Renderer*                   m_renderer = nullptr;
     std::unique_ptr<AssetCache<Texture>> m_textures;
 
     void init_caches();

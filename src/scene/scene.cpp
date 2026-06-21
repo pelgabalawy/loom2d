@@ -1,4 +1,6 @@
 #include "scene/scene.hpp"
+#include "graphics/renderer.hpp"
+#include "graphics/sprite_batcher.hpp"
 
 namespace loom {
 
@@ -22,6 +24,8 @@ void Scene::update(float dt) {
 }
 
 void Scene::draw(Renderer& renderer) {
+    // Push the camera transform to the GPU once per frame, then submit sprites.
+    renderer.batcher().set_view_projection(camera.view_projection());
     m_root->draw(renderer, camera);
 }
 

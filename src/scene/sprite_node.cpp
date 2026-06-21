@@ -1,11 +1,7 @@
 #include "scene/sprite_node.hpp"
 #include "graphics/camera.hpp"
-#include <SDL3/SDL.h>
-#define _USE_MATH_DEFINES
-#include <cmath>
-#ifndef M_PI
-#  define M_PI 3.14159265358979323846
-#endif
+#include "graphics/renderer.hpp"
+#include "graphics/sprite_batcher.hpp"
 
 namespace loom {
 
@@ -50,8 +46,6 @@ void SpriteNode::draw(Renderer& renderer, const Camera& camera) {
         return;
     }
 
-    SDL_Renderer* r = renderer.sdl_renderer();
-
     // Resolve source rect (from animation or explicit source or full texture)
     Rect src = m_source;
     if (!m_current_anim.empty()) {
@@ -60,48 +54,13 @@ void SpriteNode::draw(Renderer& renderer, const Camera& camera) {
             src = it->second.current_frame().source;
     }
 
-    int tex_w = m_texture->width();
-    int tex_h = m_texture->height();
+    // Build the world-space quad (camera zoom/rotation handled by the GPU
+    // view-projection matrix) and hand it to the batcher.
+    SpriteQuad quad = build_sprite_quad(
+        world_position(), world_rotation(), world_scale(), origin,
+        src, m_texture->width(), m_texture->height(), flip_x, flip_y);
 
-    SDL_FRect sdl_src = {};
-    if (src.w > 0 && src.h > 0) {
-        sdl_src = {src.x, src.y, src.w, src.h};
-    } else {
-        sdl_src = {0.f, 0.f, static_cast<float>(tex_w),
-                              static_cast<float>(tex_h)};
-    }
-
-    // World transform
-    Vec2  wpos   = world_position();
-    float wrot   = world_rotation();
-    Vec2  wscale = world_scale();
-
-    // Screen position via camera
-    Vec2 screen = camera.world_to_screen(wpos);
-
-    float dw = sdl_src.w * std::abs(wscale.x) * camera.zoom();
-    float dh = sdl_src.h * std::abs(wscale.y) * camera.zoom();
-
-    SDL_FRect dst = {
-        screen.x - origin.x * dw,
-        screen.y - origin.y * dh,
-        dw, dh
-    };
-
-    // Pivot for rotation (in dst-local coords)
-    SDL_FPoint pivot = {origin.x * dw, origin.y * dh};
-
-    SDL_FlipMode flip = SDL_FLIP_NONE;
-    if (flip_x && flip_y) flip = static_cast<SDL_FlipMode>(SDL_FLIP_HORIZONTAL | SDL_FLIP_VERTICAL);
-    else if (flip_x)      flip = SDL_FLIP_HORIZONTAL;
-    else if (flip_y)      flip = SDL_FLIP_VERTICAL;
-
-    SDL_SetTextureColorModFloat(m_texture->sdl_texture(), tint.r, tint.g, tint.b);
-    SDL_SetTextureAlphaModFloat(m_texture->sdl_texture(), tint.a);
-
-    double deg = wrot * (180.0 / M_PI);
-    SDL_RenderTextureRotated(r, m_texture->sdl_texture(),
-                             &sdl_src, &dst, deg, &pivot, flip);
+    renderer.batcher().submit(*m_texture, quad, tint);
 
     Node::draw(renderer, camera);
 }

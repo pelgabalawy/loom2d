@@ -1,6 +1,7 @@
 #pragma once
 #include "math/vec2.hpp"
 #include "math/rect.hpp"
+#include "math/mat4.hpp"
 
 namespace loom {
 
@@ -20,6 +21,12 @@ public:
     void set_rotation(float r)    { m_rotation = r;      }
 
     void move(Vec2 delta)         { m_position += delta;  }
+
+    // World-space → clip-space matrix for the GPU (column-major).
+    // Reproduces world_to_screen() semantics with a Y-flip into GL clip space:
+    // at zoom 1 with the camera centred on the viewport, world coordinates map
+    // 1:1 to screen pixels.
+    Mat4 view_projection() const;
 
     // Convert world-space → screen-space
     Vec2 world_to_screen(Vec2 world) const;
