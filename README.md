@@ -54,9 +54,28 @@ and assets in native code that compiles for every target platform.
 > batcher (sokol_gfx), tilemaps, text, and a UI toolkit are the next priorities —
 > see the [Roadmap](#roadmap).
 
-## Quick Start
+## Install
 
-You'll need **CMake ≥ 3.21**, a **C++17 compiler**, and **Python ≥ 3.9**.
+Prebuilt, self-contained wheels for **Windows, macOS, and Linux** (CPython
+3.11–3.13) are attached to each
+[GitHub Release](https://github.com/pelgabalawy/loom2d/releases). Download the
+wheel for your platform + Python version and:
+
+```bash
+pip install loom2d-<version>-<...>.whl
+```
+
+The SDL3 shared library is bundled *inside* the wheel, so there are no system
+dependencies to install. To build a wheel yourself instead:
+
+```bash
+pip install build
+python -m build --wheel        # → dist/loom2d-*.whl
+```
+
+## Quick Start (build from source)
+
+You'll need **CMake ≥ 3.21**, a **C++17 compiler**, and **Python ≥ 3.11**.
 A first build compiles SDL3 from source, so it takes a few minutes.
 
 **Windows (PowerShell):**

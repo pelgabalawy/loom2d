@@ -158,8 +158,19 @@ if(LOOM2D_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
-# ── Install ───────────────────────────────────────────────────────────────────
+# ── Install (used by scikit-build-core to assemble the wheel) ─────────────────
+# Everything lands in the `loom2d/` package dir so the wheel is self-contained:
+# the native module + the SDL shared library it loads (via the $ORIGIN /
+# @loader_path rpath baked above) sit side by side.
 
 install(TARGETS loom2d_native
-    LIBRARY DESTINATION python/loom2d
-    RUNTIME DESTINATION python/loom2d)
+    LIBRARY DESTINATION loom2d
+    RUNTIME DESTINATION loom2d)
+
+if(WIN32)
+    install(FILES $<TARGET_FILE:SDL3::SDL3> DESTINATION loom2d)
+else()
+    # SONAME-versioned file (the name recorded in the module's NEEDED entry,
+    # e.g. libSDL3.so.0 / libSDL3.0.dylib).
+    install(FILES $<TARGET_SONAME_FILE:SDL3::SDL3> DESTINATION loom2d)
+endif()
