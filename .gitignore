@@ -31,6 +31,8 @@ wheelhouse/
 # ── Generated example assets (created at runtime by the demos) ────────────────
 examples/flappy/assets/
 examples/stress_test/assets/
+examples/tilemap/assets/
+examples/coin_quest/assets/
 
 # ── Editor / OS cruft ─────────────────────────────────────────────────────────
 .vscode/

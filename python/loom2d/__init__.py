@@ -26,6 +26,10 @@ from loom2d_native import (
     SpriteNode,
     Scene,
     Camera,
+    # Tilemap
+    Tilemap,
+    TileLayer,
+    Tileset,
     # Animation
     Animation,
     AnimationFrame,
@@ -50,6 +54,7 @@ from loom2d_native import (
 __all__ = [
     "Vec2", "Rect", "Color",
     "Node", "SpriteNode", "Scene", "Camera",
+    "Tilemap", "TileLayer", "Tileset",
     "Animation", "AnimationFrame",
     "Input", "Key", "MouseButton",
     "PhysicsWorld", "PhysicsBody", "BodyType",

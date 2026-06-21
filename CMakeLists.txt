@@ -87,6 +87,7 @@ set(ENGINE_SOURCES
     src/scene/sprite_node.cpp
     src/scene/scene.cpp
     src/scene/animation.cpp
+    src/scene/tilemap.cpp
     src/input/input.cpp
     src/physics/physics.cpp
     src/audio/audio.cpp

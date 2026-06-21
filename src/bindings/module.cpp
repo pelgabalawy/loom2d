@@ -14,6 +14,7 @@
 #include "scene/sprite_node.hpp"
 #include "scene/scene.hpp"
 #include "scene/animation.hpp"
+#include "scene/tilemap.hpp"
 #include "input/input.hpp"
 #include "physics/physics.hpp"
 #include "audio/audio.hpp"
@@ -265,6 +266,73 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def("add_animation", &loom::SpriteNode::add_animation)
         .def("play",          &loom::SpriteNode::play)
         .def("stop",          &loom::SpriteNode::stop);
+
+    // ── Tileset ───────────────────────────────────────────────────────────────
+    py::class_<loom::Tileset, std::shared_ptr<loom::Tileset>>(m, "Tileset")
+        .def(py::init<std::shared_ptr<loom::Texture>, int, int, int>(),
+             py::arg("texture"), py::arg("tile_w"), py::arg("tile_h"),
+             py::arg("first_gid")=1)
+        .def_readwrite("texture",   &loom::Tileset::texture)
+        .def_readwrite("tile_w",    &loom::Tileset::tile_w)
+        .def_readwrite("tile_h",    &loom::Tileset::tile_h)
+        .def_readwrite("first_gid", &loom::Tileset::first_gid)
+        .def_readwrite("columns",   &loom::Tileset::columns)
+        .def_readwrite("margin",    &loom::Tileset::margin)
+        .def_readwrite("spacing",   &loom::Tileset::spacing)
+        .def_property_readonly("tile_count", &loom::Tileset::tile_count)
+        .def_property_readonly("last_gid",   &loom::Tileset::last_gid)
+        .def("contains",   &loom::Tileset::contains)
+        .def("source_for", &loom::Tileset::source_for);
+
+    // ── TileLayer ─────────────────────────────────────────────────────────────
+    py::class_<loom::TileLayer, std::shared_ptr<loom::TileLayer>>(m, "TileLayer")
+        .def(py::init<std::string, int, int>(),
+             py::arg("name"), py::arg("width"), py::arg("height"))
+        .def_readwrite("name",    &loom::TileLayer::name)
+        .def_readwrite("visible", &loom::TileLayer::visible)
+        .def_readwrite("opacity", &loom::TileLayer::opacity)
+        .def_property_readonly("width",  [](const loom::TileLayer& l){ return l.width;  })
+        .def_property_readonly("height", [](const loom::TileLayer& l){ return l.height; })
+        .def("at",   &loom::TileLayer::at)
+        .def("set",  &loom::TileLayer::set)
+        .def("fill", &loom::TileLayer::fill);
+
+    // ── Tilemap ───────────────────────────────────────────────────────────────
+    py::class_<loom::Tilemap, loom::Node,
+               std::shared_ptr<loom::Tilemap>>(m, "Tilemap")
+        .def(py::init<int, int, int, int>(),
+             py::arg("tile_w"), py::arg("tile_h"),
+             py::arg("width"), py::arg("height"))
+        .def_readwrite("tile_w", &loom::Tilemap::tile_w)
+        .def_readwrite("tile_h", &loom::Tilemap::tile_h)
+        .def_property_readonly("width",  [](const loom::Tilemap& t){ return t.width;  })
+        .def_property_readonly("height", [](const loom::Tilemap& t){ return t.height; })
+        .def("add_tileset",
+             py::overload_cast<std::shared_ptr<loom::Texture>, int, int, int>(
+                 &loom::Tilemap::add_tileset),
+             py::arg("texture"), py::arg("tile_w"), py::arg("tile_h"),
+             py::arg("first_gid")=1)
+        .def("tileset_for_gid", &loom::Tilemap::tileset_for_gid,
+             py::return_value_policy::reference_internal)
+        .def("add_layer",
+             py::overload_cast<const std::string&>(&loom::Tilemap::add_layer),
+             py::arg("name"))
+        .def("layers",        &loom::Tilemap::layers)
+        .def("layer",         &loom::Tilemap::layer, py::arg("index"))
+        .def("layer_by_name", &loom::Tilemap::layer_by_name, py::arg("name"))
+        .def("tile_to_world", &loom::Tilemap::tile_to_world,
+             py::arg("tx"), py::arg("ty"))
+        .def("world_to_tile", &loom::Tilemap::world_to_tile, py::arg("world"))
+        .def("set_solid",     &loom::Tilemap::set_solid,
+             py::arg("x"), py::arg("y"), py::arg("solid"))
+        .def("is_solid",      &loom::Tilemap::is_solid, py::arg("x"), py::arg("y"))
+        .def("set_collision_from_layer", &loom::Tilemap::set_collision_from_layer,
+             py::arg("layer_index"))
+        .def("clear_collision",   &loom::Tilemap::clear_collision)
+        .def("rect_overlaps_solid", &loom::Tilemap::rect_overlaps_solid,
+             py::arg("world_rect"))
+        .def_property_readonly("tiles_drawn", &loom::Tilemap::tiles_drawn)
+        .def_static("load", &loom::Tilemap::load, py::arg("path"));
 
     // ── Scene ─────────────────────────────────────────────────────────────────
     py::class_<loom::Scene>(m, "Scene")
