@@ -137,14 +137,19 @@ else()
     # then copy the SONAME-versioned shared lib (the name recorded in the module's
     # NEEDED/load entries — e.g. libSDL3.so.0 / libSDL3.0.dylib).
     if(APPLE)
-        set_target_properties(loom2d_native PROPERTIES
-            BUILD_RPATH   "@loader_path"
-            INSTALL_RPATH "@loader_path")
+        set(_loom_rpath "@loader_path")
     else()
-        set_target_properties(loom2d_native PROPERTIES
-            BUILD_RPATH   "$ORIGIN"
-            INSTALL_RPATH "$ORIGIN")
+        set(_loom_rpath "$ORIGIN")
     endif()
+    # BUILD_WITH_INSTALL_RPATH links the module with the final rpath up front, so
+    # we don't depend on CMake's install-time rpath rewrite (which needs patchelf
+    # and can silently no-op inside the manylinux wheel container, leaving the
+    # module unable to find the bundled SDL — the cause of the Linux import fail).
+    set_target_properties(loom2d_native PROPERTIES
+        INSTALL_RPATH               "${_loom_rpath}"
+        BUILD_RPATH                 "${_loom_rpath}"
+        BUILD_WITH_INSTALL_RPATH    ON
+        INSTALL_RPATH_USE_LINK_PATH OFF)
     add_custom_command(TARGET loom2d_native POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_SONAME_FILE:SDL3::SDL3>
