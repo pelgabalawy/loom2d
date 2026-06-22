@@ -22,8 +22,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # windows x64 · macOS arm64 (macos-14) · macOS x86_64 (macos-13) · linux x86_64
-        os: [windows-latest, macos-14, macos-13, ubuntu-latest]
+        # windows x64 · macOS arm64 (Apple Silicon) · linux x86_64.
+        # Intel-Mac (macos-13) is omitted for now — that runner is scarce and was
+        # the CI bottleneck; revisit later as a universal2 build on the arm64 runner.
+        os: [windows-latest, macos-14, ubuntu-latest]
 
     steps:
       - uses: actions/checkout@v4
