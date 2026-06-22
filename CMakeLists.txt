@@ -175,7 +175,14 @@ install(TARGETS loom2d_native
 if(WIN32)
     install(FILES $<TARGET_FILE:SDL3::SDL3> DESTINATION loom2d)
 else()
-    # SONAME-versioned file (the name recorded in the module's NEEDED entry,
-    # e.g. libSDL3.so.0 / libSDL3.0.dylib).
-    install(FILES $<TARGET_SONAME_FILE:SDL3::SDL3> DESTINATION loom2d)
+    # The SONAME (e.g. libSDL3.so.0) is a *symlink* to the versioned real file on
+    # Linux; install(FILES) would copy the symlink, which scikit-build-core then
+    # drops when packing the wheel — leaving the module unable to find its SDL.
+    # Copy the dereferenced real library content to a file named after the SONAME
+    # so the wheel always contains a genuine shared object.
+    install(CODE "file(MAKE_DIRECTORY \"\${CMAKE_INSTALL_PREFIX}/loom2d\")
+        file(COPY_FILE
+            \"$<TARGET_FILE:SDL3::SDL3>\"
+            \"\${CMAKE_INSTALL_PREFIX}/loom2d/$<TARGET_SONAME_FILE_NAME:SDL3::SDL3>\"
+            ONLY_IF_DIFFERENT)")
 endif()
