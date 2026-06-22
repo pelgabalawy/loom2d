@@ -57,12 +57,7 @@ jobs:
           # then exercise GPU-free tilemap logic. (No display in CI, so we don't
           # open a window.)
           CIBW_ENVIRONMENT: "SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy"
-          CIBW_TEST_COMMAND: >
-            python -c "import loom2d as l;
-            m=l.Tilemap(32,32,10,10); m.set_solid(3,3,True);
-            assert m.rect_overlaps_solid(l.Rect(100,100,8,8));
-            assert not m.rect_overlaps_solid(l.Rect(0,0,8,8));
-            print('loom2d wheel OK:', l.__file__)"
+          CIBW_TEST_COMMAND: "python {project}/ci/smoke_test.py"
 
       - uses: actions/upload-artifact@v4
         with:
