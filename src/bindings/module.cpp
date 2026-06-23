@@ -15,6 +15,8 @@
 #include "scene/scene.hpp"
 #include "scene/animation.hpp"
 #include "scene/tilemap.hpp"
+#include "text/font.hpp"
+#include "text/text_node.hpp"
 #include "input/input.hpp"
 #include "physics/physics.hpp"
 #include "audio/audio.hpp"
@@ -333,6 +335,44 @@ PYBIND11_MODULE(loom2d_native, m) {
              py::arg("world_rect"))
         .def_property_readonly("tiles_drawn", &loom::Tilemap::tiles_drawn)
         .def_static("load", &loom::Tilemap::load, py::arg("path"));
+
+    // ── TextAlign ─────────────────────────────────────────────────────────────
+    py::enum_<loom::TextAlign>(m, "TextAlign")
+        .value("Left",   loom::TextAlign::Left)
+        .value("Center", loom::TextAlign::Center)
+        .value("Right",  loom::TextAlign::Right)
+        .export_values();
+
+    // ── Font ──────────────────────────────────────────────────────────────────
+    py::class_<loom::Font, std::shared_ptr<loom::Font>>(m, "Font")
+        .def_static("load", &loom::Font::load,
+                    py::arg("path"), py::arg("pixel_height"),
+                    "Load a TTF/OTF and bake an ASCII atlas at the given pixel "
+                    "height. Requires a running Game/Renderer.")
+        .def_property_readonly("pixel_height", &loom::Font::pixel_height)
+        .def_property_readonly("line_height",  &loom::Font::line_height)
+        .def_property_readonly("ascent",       &loom::Font::ascent)
+        .def("measure", &loom::Font::measure,
+             py::arg("text"), py::arg("max_width") = 0.f,
+             "Block (width, height) in pixels for the given text.")
+        .def_static("wrap_lines", &loom::Font::wrap_lines,
+                    py::arg("text"), py::arg("advances"), py::arg("max_width"),
+                    "Greedy word-wrap helper: [start,end) byte ranges per line.");
+
+    // ── TextNode ──────────────────────────────────────────────────────────────
+    py::class_<loom::TextNode, loom::Node,
+               std::shared_ptr<loom::TextNode>>(m, "TextNode")
+        .def(py::init<std::shared_ptr<loom::Font>, std::string>(),
+             py::arg("font"), py::arg("text") = "")
+        .def_readwrite("color",  &loom::TextNode::color)
+        .def_readwrite("origin", &loom::TextNode::origin)
+        .def_property("text", &loom::TextNode::text, &loom::TextNode::set_text)
+        .def_property("align", &loom::TextNode::align, &loom::TextNode::set_align)
+        .def_property("max_width",
+                      &loom::TextNode::max_width, &loom::TextNode::set_max_width)
+        .def("set_font", &loom::TextNode::set_font)
+        .def_property_readonly("font", &loom::TextNode::font)
+        .def_property_readonly("size", &loom::TextNode::size);
 
     // ── Scene ─────────────────────────────────────────────────────────────────
     py::class_<loom::Scene>(m, "Scene")

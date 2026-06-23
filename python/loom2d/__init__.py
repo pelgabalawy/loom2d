@@ -30,6 +30,10 @@ from loom2d_native import (
     Tilemap,
     TileLayer,
     Tileset,
+    # Text
+    Font,
+    TextNode,
+    TextAlign,
     # Animation
     Animation,
     AnimationFrame,
@@ -55,6 +59,7 @@ __all__ = [
     "Vec2", "Rect", "Color",
     "Node", "SpriteNode", "Scene", "Camera",
     "Tilemap", "TileLayer", "Tileset",
+    "Font", "TextNode", "TextAlign",
     "Animation", "AnimationFrame",
     "Input", "Key", "MouseButton",
     "PhysicsWorld", "PhysicsBody", "BodyType",

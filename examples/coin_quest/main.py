@@ -61,6 +61,18 @@ def _tileset_png(path):
     _write_png(path, w, h, bytes(buf))
 
 
+def _find_system_font():
+    """Best-effort path to a TTF for the on-screen HUD (None if none found)."""
+    for p in (r"C:\Windows\Fonts\arial.ttf", r"C:\Windows\Fonts\segoeui.ttf",
+              "/System/Library/Fonts/Supplemental/Arial.ttf",
+              "/Library/Fonts/Arial.ttf",
+              "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+              "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"):
+        if os.path.exists(p):
+            return p
+    return None
+
+
 def _disc_png(path, size, color):
     half = size / 2.0
     out = bytearray()
@@ -107,6 +119,17 @@ class CoinQuest(loom.Game):
         self.total = len(self.coins)
         self.frame = 0
         self.won = False
+
+        # On-screen score HUD (pinned to the top-left of the view each frame so
+        # it stays put while the camera follows the hero). Skipped gracefully if
+        # no system font is available.
+        self.hud = None
+        font_path = _find_system_font()
+        if font_path:
+            self.hud = loom.TextNode(loom.Font.load(font_path, 28),
+                                     f"coins 0/{self.total}")
+            self.hud.color = loom.Color(1.0, 0.95, 0.6, 1.0)
+            self.scene.add(self.hud)
         print(f"coin_quest: {W.MAP_W}x{W.MAP_H} map, {self.total} coins. "
               f"{'AUTO-PILOT' if FRAMES else 'Arrows/WASD to move, Esc to quit.'}")
 
@@ -142,6 +165,14 @@ class CoinQuest(loom.Game):
             self.score += 1
 
         self.scene.camera.position = self.hero.position
+
+        # Keep the HUD pinned to the view's top-left corner (10px inset).
+        if self.hud is not None:
+            self.hud.position = self.scene.camera.screen_to_world(loom.Vec2(10, 10))
+            label = f"coins {self.score}/{self.total}"
+            if self.won:
+                label += "  -  YOU WIN!"
+            self.hud.text = label
 
         if not self.coins and not self.won:
             self.won = True

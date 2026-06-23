@@ -88,6 +88,8 @@ set(ENGINE_SOURCES
     src/scene/scene.cpp
     src/scene/animation.cpp
     src/scene/tilemap.cpp
+    src/text/font.cpp
+    src/text/text_node.cpp
     src/input/input.cpp
     src/physics/physics.cpp
     src/audio/audio.cpp
