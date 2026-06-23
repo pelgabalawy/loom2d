@@ -137,14 +137,19 @@ else()
     # then copy the SONAME-versioned shared lib (the name recorded in the module's
     # NEEDED/load entries — e.g. libSDL3.so.0 / libSDL3.0.dylib).
     if(APPLE)
-        set_target_properties(loom2d_native PROPERTIES
-            BUILD_RPATH   "@loader_path"
-            INSTALL_RPATH "@loader_path")
+        set(_loom_rpath "@loader_path")
     else()
-        set_target_properties(loom2d_native PROPERTIES
-            BUILD_RPATH   "$ORIGIN"
-            INSTALL_RPATH "$ORIGIN")
+        set(_loom_rpath "$ORIGIN")
     endif()
+    # BUILD_WITH_INSTALL_RPATH links the module with the final rpath up front, so
+    # we don't depend on CMake's install-time rpath rewrite (which needs patchelf
+    # and can silently no-op inside the manylinux wheel container, leaving the
+    # module unable to find the bundled SDL — the cause of the Linux import fail).
+    set_target_properties(loom2d_native PROPERTIES
+        INSTALL_RPATH               "${_loom_rpath}"
+        BUILD_RPATH                 "${_loom_rpath}"
+        BUILD_WITH_INSTALL_RPATH    ON
+        INSTALL_RPATH_USE_LINK_PATH OFF)
     add_custom_command(TARGET loom2d_native POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_SONAME_FILE:SDL3::SDL3>
@@ -158,8 +163,26 @@ if(LOOM2D_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
-# ── Install ───────────────────────────────────────────────────────────────────
+# ── Install (used by scikit-build-core to assemble the wheel) ─────────────────
+# Everything lands in the `loom2d/` package dir so the wheel is self-contained:
+# the native module + the SDL shared library it loads (via the $ORIGIN /
+# @loader_path rpath baked above) sit side by side.
 
 install(TARGETS loom2d_native
-    LIBRARY DESTINATION python/loom2d
-    RUNTIME DESTINATION python/loom2d)
+    LIBRARY DESTINATION loom2d
+    RUNTIME DESTINATION loom2d)
+
+if(WIN32)
+    install(FILES $<TARGET_FILE:SDL3::SDL3> DESTINATION loom2d)
+else()
+    # The SONAME (e.g. libSDL3.so.0) is a *symlink* to the versioned real file on
+    # Linux; install(FILES) would copy the symlink, which scikit-build-core then
+    # drops when packing the wheel — leaving the module unable to find its SDL.
+    # Copy the dereferenced real library content to a file named after the SONAME
+    # so the wheel always contains a genuine shared object.
+    install(CODE "file(MAKE_DIRECTORY \"\${CMAKE_INSTALL_PREFIX}/loom2d\")
+        file(COPY_FILE
+            \"$<TARGET_FILE:SDL3::SDL3>\"
+            \"\${CMAKE_INSTALL_PREFIX}/loom2d/$<TARGET_SONAME_FILE_NAME:SDL3::SDL3>\"
+            ONLY_IF_DIFFERENT)")
+endif()

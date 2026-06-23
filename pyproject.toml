@@ -6,7 +6,25 @@ build-backend = "scikit_build_core.build"
 name = "loom2d"
 version = "0.1.0"
 description = "Cross-platform 2D game engine — write games in Python, run everywhere"
-requires-python = ">=3.9"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Peter Elgabalawy" }]
+keywords = ["game-engine", "2d", "gamedev", "sdl3", "sokol", "box2d"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: C++",
+    "Topic :: Games/Entertainment",
+    "Topic :: Multimedia :: Graphics",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+]
+
+[project.urls]
+Homepage = "https://github.com/pelgabalawy/loom2d"
+Repository = "https://github.com/pelgabalawy/loom2d"
 
 [project.scripts]
 loom2d = "loom2d.cli:main"
@@ -14,3 +32,15 @@ loom2d = "loom2d.cli:main"
 [tool.scikit-build]
 cmake.build-type = "Release"
 wheel.packages = ["python/loom2d"]
+# Bundled C++ deps (Box2D, etc.) install their static libs / headers into
+# lib/ and include/ — strip those from the wheel; only loom2d/ is needed.
+wheel.exclude = ["lib/**", "include/**", "*.lib", "*.a"]
+# Don't ship build artifacts that local dev (build.ps1/build.sh) drops into the
+# source package dir — the wheel's native module + SDL lib come from the CMake
+# install step below, into loom2d/.
+sdist.exclude = ["python/loom2d/*.pyd", "python/loom2d/*.so", "python/loom2d/*.so.*",
+                 "python/loom2d/*.dll", "python/loom2d/*.dylib", "python/loom2d/__pycache__"]
+
+[tool.scikit-build.cmake.define]
+# Wheels don't need the GoogleTest suite — skip it for faster, leaner builds.
+LOOM2D_BUILD_TESTS = "OFF"
