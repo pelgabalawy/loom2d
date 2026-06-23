@@ -87,3 +87,103 @@ class TestPhysicsBody:
         assert BodyType.Dynamic   is not None
         assert BodyType.Kinematic is not None
         assert BodyType.Static != BodyType.Dynamic
+
+    def test_tag_round_trips(self):
+        w = PhysicsWorld(gravity_y=0)
+        b = w.create_body(BodyType.Dynamic, Vec2(0, 0))
+        assert b.tag == ""
+        b.tag = "player"
+        assert b.tag == "player"
+
+
+class TestContactEvents:
+    def _make_collision_world(self):
+        w = PhysicsWorld(gravity_x=0, gravity_y=0)
+        a = w.create_body(BodyType.Dynamic, Vec2(0, 0))
+        a.add_box(10, 10)
+        a.tag = "a"
+        b = w.create_body(BodyType.Static, Vec2(15, 0))
+        b.add_box(10, 10)
+        b.tag = "b"
+        a.set_linear_velocity(Vec2(64, 0))
+        return w, a, b
+
+    def test_contact_begin_event_list(self):
+        w, a, b = self._make_collision_world()
+        saw = False
+        for _ in range(120):
+            w.step(1 / 60)
+            if w.contact_begins:
+                saw = True
+                pair = w.contact_begins[0]
+                tags = {pair.body_a.tag, pair.body_b.tag}
+                assert tags == {"a", "b"}
+                break
+        assert saw
+
+    def test_contact_callback(self):
+        w, a, b = self._make_collision_world()
+        hits = []
+        w.on_contact_begin = lambda x, y: hits.append((x.tag, y.tag))
+        for _ in range(120):
+            w.step(1 / 60)
+            if hits:
+                break
+        assert hits
+        assert set(hits[0]) == {"a", "b"}
+
+    def test_no_contact_when_apart(self):
+        w = PhysicsWorld(gravity_y=0)
+        a = w.create_body(BodyType.Dynamic, Vec2(0, 0))
+        a.add_box(10, 10)
+        b = w.create_body(BodyType.Static, Vec2(500, 0))
+        b.add_box(10, 10)
+        for _ in range(30):
+            w.step(1 / 60)
+        assert list(w.contact_begins) == []
+
+
+class TestSensorEvents:
+    def test_sensor_overlap_without_block(self):
+        w = PhysicsWorld(gravity_x=0, gravity_y=0)
+        sensor = w.create_body(BodyType.Static, Vec2(0, 0))
+        sensor.add_box(20, 20, is_sensor=True)
+        sensor.tag = "zone"
+        mover = w.create_body(BodyType.Dynamic, Vec2(-100, 0))
+        mover.add_box(8, 8)
+        mover.set_linear_velocity(Vec2(200, 0))
+
+        saw = False
+        for _ in range(120):
+            w.step(1 / 60)
+            if w.sensor_begins:
+                saw = True
+                pair = w.sensor_begins[0]
+                assert pair.sensor.tag == "zone"
+        assert saw
+        # Sensor does not block: mover slides all the way through.
+        assert mover.position.x > 50
+
+
+class TestRaycast:
+    def test_raycast_hits(self):
+        w = PhysicsWorld(gravity_y=0)
+        wall = w.create_body(BodyType.Static, Vec2(100, 0))
+        wall.add_box(10, 50)
+        wall.tag = "wall"
+        w.step(1 / 60)
+        hit = w.raycast(Vec2(0, 0), Vec2(300, 0))
+        assert hit.hit
+        assert bool(hit) is True
+        assert hit.body.tag == "wall"
+        assert hit.point.x == pytest.approx(90, abs=2)
+        assert 0.0 <= hit.fraction <= 1.0
+
+    def test_raycast_misses(self):
+        w = PhysicsWorld(gravity_y=0)
+        wall = w.create_body(BodyType.Static, Vec2(100, 500))
+        wall.add_box(10, 10)
+        w.step(1 / 60)
+        hit = w.raycast(Vec2(0, 0), Vec2(300, 0))
+        assert not hit.hit
+        assert hit.body is None

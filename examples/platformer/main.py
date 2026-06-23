@@ -3,6 +3,8 @@ loom2d platformer example — demonstrates:
   - Scene graph (Node)
   - Input (keyboard WASD + Space)
   - Physics (dynamic player body, static floor)
+  - Physics events: ground-contact "landed" detection + a coin-pickup sensor
+  - Body tags to tell who-hit-what
   - Camera follow
 """
 import sys, os
@@ -21,19 +23,56 @@ class Platformer(loom.Game):
         print("Platformer started!")
         print("  WASD / arrow keys to move, Space to jump, Escape to quit")
 
+        self.on_ground = False
+        self.score = 0
+
         # Static floor
         self.floor = self.physics.create_body(loom.BodyType.Static,
                                               loom.Vec2(W / 2, H - 20))
         self.floor.add_box(W / 2, 20)
+        self.floor.tag = "ground"
 
         # Dynamic player
         self.player = self.physics.create_body(loom.BodyType.Dynamic,
                                                loom.Vec2(W / 2, H / 2))
         self.player.add_box(16, 24, density=1.0, restitution=0.0)
+        self.player.tag = "player"
+
+        # A coin: a static sensor that reports overlap without blocking
+        self.coin = self.physics.create_body(loom.BodyType.Static,
+                                             loom.Vec2(W / 2 + 120, H - 60))
+        self.coin.add_box(12, 12, is_sensor=True)
+        self.coin.tag = "coin"
+        self.coin_alive = True
 
         # Visual node (shows where the physics body is)
         self.player_node = loom.Node("player")
         self.scene.add(self.player_node)
+
+        # ── Physics event callbacks ─────────────────────────────────────────
+        self.physics.on_contact_begin = self._on_contact_begin
+        self.physics.on_contact_end   = self._on_contact_end
+        self.physics.on_sensor_begin  = self._on_sensor_begin
+
+    def _involves(self, a, b, t1, t2):
+        """True if the (a, b) pair has one body tagged t1 and the other t2."""
+        return {a.tag, b.tag} == {t1, t2}
+
+    def _on_contact_begin(self, a, b):
+        if self._involves(a, b, "player", "ground"):
+            self.on_ground = True
+            print("landed")
+
+    def _on_contact_end(self, a, b):
+        if self._involves(a, b, "player", "ground"):
+            self.on_ground = False
+
+    def _on_sensor_begin(self, sensor, visitor):
+        if sensor.tag == "coin" and visitor.tag == "player" and self.coin_alive:
+            self.coin_alive = False
+            self.score += 1
+            print(f"coin collected! score={self.score}")
+            self.physics.destroy_body(self.coin)
 
     def on_update(self, dt):
         # Horizontal movement
@@ -46,10 +85,10 @@ class Platformer(loom.Game):
         cur_vel = self.player.linear_velocity
         self.player.set_linear_velocity(loom.Vec2(vx, cur_vel.y))
 
-        # Jump when nearly on the ground
-        if loom.Input.key_pressed(loom.Key.Space):
-            if abs(cur_vel.y) < 32.0:
-                self.player.apply_impulse(loom.Vec2(0, -JUMP_IMPULSE))
+        # Jump only when actually standing on the ground (event-driven)
+        if loom.Input.key_pressed(loom.Key.Space) and self.on_ground:
+            self.player.apply_impulse(loom.Vec2(0, -JUMP_IMPULSE))
+            self.on_ground = False
 
         # Sync visual node to physics body
         pos = self.player.position
@@ -59,7 +98,7 @@ class Platformer(loom.Game):
         self.scene.camera.position = loom.Vec2(pos.x - W / 2, pos.y - H / 2)
 
     def on_stop(self):
-        print("Thanks for playing!")
+        print(f"Thanks for playing! Final score: {self.score}")
 
 
 loom.run(Platformer(), title="loom2d Platformer", width=W, height=H)

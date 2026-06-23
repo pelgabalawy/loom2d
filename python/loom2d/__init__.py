@@ -45,6 +45,9 @@ from loom2d_native import (
     PhysicsWorld,
     PhysicsBody,
     BodyType,
+    ContactPair,
+    SensorPair,
+    RaycastHit,
     # Audio
     AudioEngine,
     # Assets
@@ -63,6 +66,7 @@ __all__ = [
     "Animation", "AnimationFrame",
     "Input", "Key", "MouseButton",
     "PhysicsWorld", "PhysicsBody", "BodyType",
+    "ContactPair", "SensorPair", "RaycastHit",
     "AudioEngine",
     "AssetManager", "Texture",
     "Game", "run",

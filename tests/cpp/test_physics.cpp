@@ -132,3 +132,114 @@ TEST(Physics, MultipleSteps) {
         for (int i = 0; i < 120; ++i) w.step(1.f / 60.f);
     });
 }
+
+// ── Tags / user-data ────────────────────────────────────────────────────────────
+
+TEST(Physics, BodyTagRoundTrips) {
+    PhysicsWorld w;
+    PhysicsBody* b = w.create_body(BodyType::Dynamic, {0.f, 0.f});
+    EXPECT_EQ(b->tag(), "");
+    b->set_tag("player");
+    EXPECT_EQ(b->tag(), "player");
+}
+
+// ── Contact events ──────────────────────────────────────────────────────────────
+
+TEST(Physics, ContactBeginFiresOnOverlap) {
+    PhysicsWorld world(0.f, 0.f); // no gravity
+    PhysicsBody* a = world.create_body(BodyType::Dynamic, {0.f, 0.f});
+    a->add_box(10.f, 10.f);
+    a->set_tag("a");
+    PhysicsBody* b = world.create_body(BodyType::Static, {15.f, 0.f});
+    b->add_box(10.f, 10.f);
+    b->set_tag("b");
+
+    // Drive them into each other.
+    a->set_linear_velocity({64.f, 0.f});
+
+    bool saw_begin = false;
+    for (int i = 0; i < 120 && !saw_begin; ++i) {
+        world.step(1.f / 60.f);
+        if (!world.contact_begins().empty()) saw_begin = true;
+    }
+    EXPECT_TRUE(saw_begin);
+    // The pair should reference both of our bodies.
+    const ContactPair& cp = world.contact_begins().front();
+    EXPECT_TRUE((cp.body_a == a && cp.body_b == b) ||
+                (cp.body_a == b && cp.body_b == a));
+}
+
+TEST(Physics, ContactCallbackInvoked) {
+    PhysicsWorld world(0.f, 0.f);
+    PhysicsBody* a = world.create_body(BodyType::Dynamic, {0.f, 0.f});
+    a->add_box(10.f, 10.f);
+    PhysicsBody* b = world.create_body(BodyType::Static, {15.f, 0.f});
+    b->add_box(10.f, 10.f);
+
+    int hits = 0;
+    world.on_contact_begin = [&](PhysicsBody*, PhysicsBody*){ ++hits; };
+    a->set_linear_velocity({64.f, 0.f});
+
+    for (int i = 0; i < 120 && hits == 0; ++i) world.step(1.f / 60.f);
+    EXPECT_GT(hits, 0);
+}
+
+TEST(Physics, NonOverlappingBodiesNoContact) {
+    PhysicsWorld world(0.f, 0.f);
+    PhysicsBody* a = world.create_body(BodyType::Dynamic, {0.f, 0.f});
+    a->add_box(10.f, 10.f);
+    PhysicsBody* b = world.create_body(BodyType::Static, {500.f, 0.f});
+    b->add_box(10.f, 10.f);
+
+    for (int i = 0; i < 30; ++i) world.step(1.f / 60.f);
+    EXPECT_TRUE(world.contact_begins().empty());
+}
+
+// ── Sensor events ───────────────────────────────────────────────────────────────
+
+TEST(Physics, SensorReportsOverlapWithoutBlocking) {
+    PhysicsWorld world(0.f, 0.f);
+    // A static sensor at the origin.
+    PhysicsBody* sensor = world.create_body(BodyType::Static, {0.f, 0.f});
+    sensor->add_box(20.f, 20.f, 1.f, 0.3f, 0.f, /*is_sensor=*/true);
+    sensor->set_tag("zone");
+    // A dynamic body sliding straight through it.
+    PhysicsBody* mover = world.create_body(BodyType::Dynamic, {-100.f, 0.f});
+    mover->add_box(8.f, 8.f);
+    mover->set_linear_velocity({200.f, 0.f});
+
+    bool saw_sensor_begin = false;
+    for (int i = 0; i < 120; ++i) {
+        world.step(1.f / 60.f);
+        if (!world.sensor_begins().empty()) saw_sensor_begin = true;
+    }
+    EXPECT_TRUE(saw_sensor_begin);
+    // Sensor does not block: mover passes through to the far side.
+    EXPECT_GT(mover->position().x, 50.f);
+}
+
+// ── Raycast ─────────────────────────────────────────────────────────────────────
+
+TEST(Physics, RaycastHitsBody) {
+    PhysicsWorld world(0.f, 0.f);
+    PhysicsBody* wall = world.create_body(BodyType::Static, {100.f, 0.f});
+    wall->add_box(10.f, 50.f);
+    wall->set_tag("wall");
+    world.step(1.f / 60.f); // let the shape register
+
+    RaycastHit hit = world.raycast({0.f, 0.f}, {300.f, 0.f});
+    EXPECT_TRUE(hit.hit);
+    EXPECT_EQ(hit.body, wall);
+    EXPECT_NEAR(hit.point.x, 90.f, 2.f); // near-side face of the wall
+}
+
+TEST(Physics, RaycastMisses) {
+    PhysicsWorld world(0.f, 0.f);
+    PhysicsBody* wall = world.create_body(BodyType::Static, {100.f, 500.f});
+    wall->add_box(10.f, 10.f);
+    world.step(1.f / 60.f);
+
+    RaycastHit hit = world.raycast({0.f, 0.f}, {300.f, 0.f});
+    EXPECT_FALSE(hit.hit);
+    EXPECT_EQ(hit.body, nullptr);
+}

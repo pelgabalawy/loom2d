@@ -433,16 +433,39 @@ PYBIND11_MODULE(loom2d_native, m) {
         .value("Dynamic",   loom::BodyType::Dynamic)
         .export_values();
 
+    // ── Physics events ──────────────────────────────────────────────────────────
+    py::class_<loom::ContactPair>(m, "ContactPair")
+        .def_readonly("body_a", &loom::ContactPair::body_a,
+                      py::return_value_policy::reference)
+        .def_readonly("body_b", &loom::ContactPair::body_b,
+                      py::return_value_policy::reference);
+
+    py::class_<loom::SensorPair>(m, "SensorPair")
+        .def_readonly("sensor",  &loom::SensorPair::sensor,
+                      py::return_value_policy::reference)
+        .def_readonly("visitor", &loom::SensorPair::visitor,
+                      py::return_value_policy::reference);
+
+    py::class_<loom::RaycastHit>(m, "RaycastHit")
+        .def_readonly("hit",      &loom::RaycastHit::hit)
+        .def_readonly("body",     &loom::RaycastHit::body,
+                      py::return_value_policy::reference)
+        .def_readonly("point",    &loom::RaycastHit::point)
+        .def_readonly("normal",   &loom::RaycastHit::normal)
+        .def_readonly("fraction", &loom::RaycastHit::fraction)
+        .def("__bool__", [](const loom::RaycastHit& h){ return h.hit; });
+
     // ── PhysicsBody ───────────────────────────────────────────────────────────
     py::class_<loom::PhysicsBody>(m, "PhysicsBody")
         .def("add_box",    &loom::PhysicsBody::add_box,
              py::arg("half_w"), py::arg("half_h"),
              py::arg("density")=1.f, py::arg("friction")=0.3f,
-             py::arg("restitution")=0.f)
+             py::arg("restitution")=0.f, py::arg("is_sensor")=false)
         .def("add_circle", &loom::PhysicsBody::add_circle,
              py::arg("radius"),
              py::arg("density")=1.f, py::arg("friction")=0.3f,
-             py::arg("restitution")=0.f)
+             py::arg("restitution")=0.f, py::arg("is_sensor")=false)
+        .def_property("tag", &loom::PhysicsBody::tag, &loom::PhysicsBody::set_tag)
         .def_property_readonly("position",        &loom::PhysicsBody::position)
         .def_property_readonly("rotation",        &loom::PhysicsBody::rotation)
         .def_property_readonly("linear_velocity", &loom::PhysicsBody::linear_velocity)
@@ -460,7 +483,17 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def("create_body",  &loom::PhysicsWorld::create_body,
              py::arg("type"), py::arg("position"),
              py::return_value_policy::reference)
-        .def("destroy_body", &loom::PhysicsWorld::destroy_body);
+        .def("destroy_body", &loom::PhysicsWorld::destroy_body)
+        .def("raycast",      &loom::PhysicsWorld::raycast,
+             py::arg("p1"), py::arg("p2"))
+        .def_property_readonly("contact_begins", &loom::PhysicsWorld::contact_begins)
+        .def_property_readonly("contact_ends",   &loom::PhysicsWorld::contact_ends)
+        .def_property_readonly("sensor_begins",  &loom::PhysicsWorld::sensor_begins)
+        .def_property_readonly("sensor_ends",    &loom::PhysicsWorld::sensor_ends)
+        .def_readwrite("on_contact_begin", &loom::PhysicsWorld::on_contact_begin)
+        .def_readwrite("on_contact_end",   &loom::PhysicsWorld::on_contact_end)
+        .def_readwrite("on_sensor_begin",  &loom::PhysicsWorld::on_sensor_begin)
+        .def_readwrite("on_sensor_end",    &loom::PhysicsWorld::on_sensor_end);
 
     // ── AudioEngine ───────────────────────────────────────────────────────────
     py::class_<loom::AudioEngine>(m, "AudioEngine")
