@@ -33,6 +33,7 @@ examples/flappy/assets/
 examples/stress_test/assets/
 examples/tilemap/assets/
 examples/coin_quest/assets/
+examples/platformer/assets/
 
 # ── Editor / OS cruft ─────────────────────────────────────────────────────────
 .vscode/
