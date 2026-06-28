@@ -1,0 +1,43 @@
+name: Release Please
+
+# Continuous release automation. On every push to main, release-please maintains
+# a rolling "release PR" that bumps the version (in pyproject.toml) and updates
+# CHANGELOG.md from the Conventional-Commit history. Merging that release PR
+# creates the git tag + GitHub Release, and this workflow then builds the wheels
+# and attaches them to that release — so a reviewed, merged release PR ships.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Maintain release PR / cut release
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: rp
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # When release-please just created a release, build the wheels and attach them.
+  # Done in this run (not via a tag-push trigger) because workflows can't be
+  # triggered by events the default GITHUB_TOKEN raises — so we call the reusable
+  # build workflow directly instead of relying on a tag-push cascade.
+  wheels:
+    name: Build & attach wheels
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
