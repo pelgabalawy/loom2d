@@ -50,9 +50,17 @@ and assets in native code that compiles for every target platform.
 | Linux | 🚧 Build scripts ready — verification pending |
 | Android / iOS | ⏳ Planned |
 
-> **Early days.** The engine currently renders via SDL_Renderer. A GPU sprite
-> batcher (sokol_gfx), tilemaps, text, and a UI toolkit are the next priorities —
-> see the [Roadmap](#roadmap).
+> **Working today on desktop.** GPU sprite batching (sokol_gfx), tilemaps, text
+> rendering, audio, and a Box2D-v3 physics engine with collision events are all in
+> and tested. A UI toolkit, gamepad/touch input, and mobile targets are next — see
+> the [Roadmap](#roadmap).
+
+## 📖 Documentation
+
+Full guides and API reference: **<https://pelgabalawy.github.io/loom2d/>**
+
+New here? Start with the [Quick Start](https://pelgabalawy.github.io/loom2d/getting-started/quickstart/)
+— a controllable sprite in about five minutes, in pure Python.
 
 ## Install
 

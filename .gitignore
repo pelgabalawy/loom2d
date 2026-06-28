@@ -2,6 +2,8 @@
 /build/
 /dist/
 /_deps/
+# MkDocs render output (mkdocs build)
+/site/
 *.o
 *.obj
 *.a

@@ -1,0 +1,78 @@
+site_name: loom2d
+site_description: Write your 2D game in Python. Ship it everywhere.
+site_url: https://pelgabalawy.github.io/loom2d/
+repo_url: https://github.com/pelgabalawy/loom2d
+repo_name: pelgabalawy/loom2d
+copyright: Copyright &copy; Peter Elgabalawy
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.code.annotate
+    - toc.follow
+    - search.suggest
+    - search.highlight
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+      - The Game Loop: getting-started/game-loop.md
+  - Guides:
+      - Scene Graph: guides/scene-graph.md
+      - Sprites & Textures: guides/sprites.md
+      - Camera: guides/camera.md
+      - Animation: guides/animation.md
+      - Input: guides/input.md
+      - Tilemaps: guides/tilemaps.md
+      - Physics: guides/physics.md
+      - Physics Events: guides/physics-events.md
+      - Text & Fonts: guides/text.md
+      - Audio: guides/audio.md
+      - Assets: guides/assets.md
+  - Reference:
+      - Math Types: reference/math.md
+      - API Summary: reference/api-summary.md
+  - Examples: examples.md
