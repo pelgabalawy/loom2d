@@ -1,12 +1,18 @@
 name: Build & Release Wheels
 
 # Build self-contained wheels for Windows / macOS / Linux (CPython 3.11–3.13).
-# - Run manually (workflow_dispatch) to validate the pipeline.
-# - Push a tag like v0.1.0 to build everything and publish a GitHub Release.
+# - Called by release-please.yml (workflow_call) when a release is cut: builds
+#   the wheels + sdist and attaches them to the release-please-created release.
+# - Run manually (workflow_dispatch) to validate the pipeline (no upload).
+# - Validates the build on PRs that touch packaging.
 on:
   workflow_dispatch:
-  push:
-    tags: ["v*"]
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag to attach the built wheels + sdist to (e.g. v0.3.0)."
+        required: true
+        type: string
   # Validate the wheels on PRs that touch packaging (so we catch macOS/Linux
   # build breaks before merging, without running the matrix on every code change).
   pull_request:
@@ -75,21 +81,23 @@ jobs:
           name: sdist
           path: dist/*.tar.gz
 
-  release:
-    name: Publish GitHub Release
+  upload:
+    name: Attach wheels to release
     needs: [build_wheels, make_sdist]
+    # Only when called for a real release (workflow_call passes a tag). On manual
+    # dispatch / packaging PRs there is no tag, so we just build to validate.
+    if: ${{ inputs.tag != '' }}
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
     permissions:
-      contents: write   # required to create the release + upload assets
+      contents: write   # required to upload assets to the release
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
-      - name: Create / update GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*
-          generate_release_notes: true
-          fail_on_unmatched_files: true
+      # Attach to the release release-please already created (keeping its
+      # Conventional-Commit changelog as the release notes — we don't regenerate).
+      - name: Upload wheels + sdist to ${{ inputs.tag }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ inputs.tag }}" dist/* --clobber --repo "${{ github.repository }}"
