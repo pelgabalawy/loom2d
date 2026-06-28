@@ -54,16 +54,18 @@ jobs:
       # Build with LOOM2D_BUILD_TESTS=ON and stage the native module into
       # python/loom2d/ (the helper scripts do both), then run ctest + pytest
       # headless (SDL offscreen video + dummy audio — set inside run_tests.*).
+      # Debug config (the local default): run_tests.{sh,ps1} run `ctest -C Debug`,
+      # and on multi-config VS the build config must match or ctest finds no exe.
       - name: Build & test (Linux)
         if: runner.os == 'Linux'
         run: |
           chmod +x build.sh run_tests.sh
-          ./build.sh Release
+          ./build.sh Debug
           ./run_tests.sh
 
       - name: Build & test (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          ./build.ps1 Release
+          ./build.ps1 Debug
           ./run_tests.ps1
