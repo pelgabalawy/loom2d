@@ -21,7 +21,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # windows-2022 (not windows-latest): the latest image is windows-2025
+        # shipping Visual Studio 2026, but build.ps1 hard-codes the
+        # "Visual Studio 17 2022" generator. Pinning keeps that generator valid.
+        # TODO: make build.ps1 generator-agnostic, then move to windows-latest.
+        os: [ubuntu-latest, windows-2022]
 
     steps:
       - uses: actions/checkout@v4
