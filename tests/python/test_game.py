@@ -3,7 +3,7 @@ Test the Game base class Python API (no window opened).
 """
 import pytest
 loom2d_native = pytest.importorskip("loom2d_native")
-from loom2d_native import Game, Color
+from loom2d_native import Game, Color, ScaleMode
 
 
 class TestGameSubclassing:
@@ -120,3 +120,49 @@ class TestGameSubclassing:
 
         assert A().val == 1
         assert B().val == 2
+
+
+class TestResponsiveScaling:
+    def test_logical_size_defaults_to_zero(self):
+        # 0 means "use the window size" — run() resolves it on startup.
+        g = Game()
+        assert g.logical_width == 0
+        assert g.logical_height == 0
+
+    def test_logical_size_settable(self):
+        g = Game()
+        g.logical_width = 1280
+        g.logical_height = 720
+        assert g.logical_width == 1280
+        assert g.logical_height == 720
+
+    def test_scale_mode_default_is_fit(self):
+        g = Game()
+        assert g.scale_mode == ScaleMode.Fit
+
+    def test_scale_mode_settable(self):
+        g = Game()
+        g.scale_mode = ScaleMode.PixelPerfect
+        assert g.scale_mode == ScaleMode.PixelPerfect
+
+    def test_scale_mode_enum_values(self):
+        names = {ScaleMode.Fit, ScaleMode.Stretch,
+                 ScaleMode.Expand, ScaleMode.PixelPerfect}
+        assert len(names) == 4
+
+    def test_screen_size_readonly_default_zero(self):
+        # Updated by run() each frame; zero until a window exists.
+        g = Game()
+        assert g.screen_width == 0
+        assert g.screen_height == 0
+
+    def test_on_resize_overridable(self):
+        events = []
+
+        class MyGame(Game):
+            def on_resize(self, w, h):
+                events.append((w, h))
+
+        g = MyGame()
+        g.on_resize(1024, 768)
+        assert events == [(1024, 768)]

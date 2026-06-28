@@ -39,8 +39,10 @@ cam.move(loom.Vec2(10, 0))   # pan right by 10 world units
 
 ## Screen ↔ world conversion
 
-Input arrives in **screen pixels** (e.g. the mouse position), but your game objects
-live in **world coordinates**. Two helpers convert between them:
+Input arrives in **screen space** — logical units measured from the top-left of the
+view (e.g. the mouse position, already remapped through the active
+[scale mode](responsive-scaling.md)) — but your game objects live in **world
+coordinates**. Two helpers convert between them:
 
 ```python
 world = cam.screen_to_world(loom.Input.mouse_position())  # click → world
@@ -77,4 +79,4 @@ if not view.contains(enemy.position):
 
 - [Scene Graph](scene-graph.md) — the tree the camera views
 - [Tilemaps](tilemaps.md) — automatic culling via `visible_rect()`
-- [Input](input.md) — mouse position is in screen space; convert with `screen_to_world`
+- [Input](input.md) — mouse position is in logical screen units; convert with `screen_to_world`

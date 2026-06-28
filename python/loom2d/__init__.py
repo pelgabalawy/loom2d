@@ -26,6 +26,7 @@ from loom2d_native import (
     SpriteNode,
     Scene,
     Camera,
+    ScaleMode,
     # Tilemap
     Tilemap,
     TileLayer,
@@ -60,7 +61,7 @@ from loom2d_native import (
 
 __all__ = [
     "Vec2", "Rect", "Color",
-    "Node", "SpriteNode", "Scene", "Camera",
+    "Node", "SpriteNode", "Scene", "Camera", "ScaleMode",
     "Tilemap", "TileLayer", "Tileset",
     "Font", "TextNode", "TextAlign",
     "Animation", "AnimationFrame",

@@ -32,6 +32,12 @@ void Renderer::begin_frame(const Color& clear) {
     sg_begin_pass(&pass);
 }
 
+void Renderer::set_viewport(int x, int y, int w, int h) {
+    // origin_top_left = true matches our screen-space (y-down) viewport rects.
+    sg_apply_viewport(x, y, w, h, true);
+    sg_apply_scissor_rect(x, y, w, h, true);
+}
+
 void Renderer::end_frame() {
     m_batcher.flush();
     sg_end_pass();

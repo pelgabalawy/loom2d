@@ -20,6 +20,10 @@ For full explanations and examples, follow the links to the guides.
 `scene`, `physics`, `audio`, `assets`, `clear_color`, `running`, `auto_physics`,
 `auto_scene`, `last_draw_calls`. See [The Game Loop](../getting-started/game-loop.md).
 
+For resolution independence: `logical_width`, `logical_height`, `scale_mode`,
+`screen_width`, `screen_height`, and the `on_resize(w, h)` hook — see
+[Responsive Scaling](../guides/responsive-scaling.md).
+
 ## Math — [guide](math.md)
 
 | Type | Summary |
@@ -35,7 +39,8 @@ For full explanations and examples, follow the links to the guides.
 | `Node` | transform + hierarchy: `position`, `x`, `y`, `rotation`, `scale`, `visible`, `add_child`, `remove_from_parent`, `world_position` |
 | `SpriteNode(texture)` | draws a texture: `origin`, `tint`, `flip_x/y`, `set_source`, `play` — [guide](../guides/sprites.md) |
 | `Scene` | node tree + `camera`: `add`, `remove`, `clear`, `root` |
-| `Camera` | `position`, `zoom`, `rotation`, `screen_to_world`, `world_to_screen`, `visible_rect` — [guide](../guides/camera.md) |
+| `Camera` | `position`, `zoom`, `rotation`, `set_viewport`, `screen_to_world`, `world_to_screen`, `visible_rect` — [guide](../guides/camera.md) |
+| `ScaleMode` | `Fit`, `Stretch`, `Expand`, `PixelPerfect` — [responsive scaling](../guides/responsive-scaling.md) |
 
 ## Animation — [guide](../guides/animation.md)
 

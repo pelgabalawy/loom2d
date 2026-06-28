@@ -64,6 +64,7 @@ nav:
       - Scene Graph: guides/scene-graph.md
       - Sprites & Textures: guides/sprites.md
       - Camera: guides/camera.md
+      - Responsive Scaling: guides/responsive-scaling.md
       - Animation: guides/animation.md
       - Input: guides/input.md
       - Tilemaps: guides/tilemaps.md

@@ -52,7 +52,7 @@ Space  Enter  Escape  Tab  Shift  Ctrl  F1  F5  F12
 ## Mouse
 
 ```python
-pos = loom.Input.mouse_position()                 # Vec2, in screen pixels
+pos = loom.Input.mouse_position()                 # Vec2, in logical units
 if loom.Input.mouse_down(loom.MouseButton.Left):  # held
     ...
 if loom.Input.mouse_pressed(loom.MouseButton.Left):  # clicked this frame
@@ -62,15 +62,18 @@ if loom.Input.mouse_pressed(loom.MouseButton.Left):  # clicked this frame
 
 | Method | Returns |
 |--------|---------|
-| `Input.mouse_position()` | `Vec2` — cursor position in **screen pixels** |
+| `Input.mouse_position()` | `Vec2` — cursor position in **logical units** |
 | `Input.mouse_down(button)` | `bool` — button held |
 | `Input.mouse_pressed(button)` | `bool` — button clicked this frame |
 
 `MouseButton` has `Left`, `Middle`, and `Right`.
 
-!!! note "Mouse position is screen space"
-    `mouse_position()` is in window pixels. To act on the world (place an object where
-    the player clicked), convert with
+!!! note "Mouse position is in logical units"
+    The engine remaps the raw pointer through the active
+    [scale mode](responsive-scaling.md) and display DPI every frame, so
+    `mouse_position()` is already in your game's logical coordinate space — the
+    letterbox bars and HiDPI scaling are accounted for. To turn it into a world
+    position (e.g. to place an object where the player clicked), convert with
     [`camera.screen_to_world()`](camera.md#screen-world-conversion).
 
 ## Testing without a window

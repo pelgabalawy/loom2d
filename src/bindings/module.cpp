@@ -8,6 +8,7 @@
 #include "graphics/renderer.hpp"
 #include "graphics/texture.hpp"
 #include "graphics/camera.hpp"
+#include "graphics/scaling.hpp"
 #include "math/vec2.hpp"
 #include "math/rect.hpp"
 #include "scene/node.hpp"
@@ -45,19 +46,34 @@ public:
     // Number of draw calls emitted in the previous frame (diagnostics).
     int  last_draw_calls = 0;
 
-    virtual void on_start()          {}
-    virtual void on_update(float dt) { (void)dt; }
-    virtual void on_draw()           {}
-    virtual void on_stop()           {}
+    // ── Responsive scaling (Phase 2.7) ──────────────────────────────────────
+    // Logical (design) resolution the game is authored against. 0 means "use the
+    // initial window size"; run() resolves it to a concrete value on startup.
+    int       logical_width  = 0;
+    int       logical_height = 0;
+    // How that logical resolution maps onto the real (possibly resized / HiDPI)
+    // drawable surface. Fit (letterbox, preserve aspect) by default.
+    loom::ScaleMode scale_mode = loom::ScaleMode::Fit;
+    // Current drawable size in device pixels, updated by run() every frame.
+    int       screen_width  = 0;
+    int       screen_height = 0;
+
+    virtual void on_start()              {}
+    virtual void on_update(float dt)     { (void)dt; }
+    virtual void on_draw()               {}
+    virtual void on_stop()               {}
+    // Called whenever the drawable surface changes size (resize / DPI change).
+    virtual void on_resize(int w, int h) { (void)w; (void)h; }
 };
 
 class PyGame : public Game {
 public:
     using Game::Game;
-    void on_start()          override { PYBIND11_OVERRIDE(void, Game, on_start);     }
-    void on_update(float dt) override { PYBIND11_OVERRIDE(void, Game, on_update, dt);}
-    void on_draw()           override { PYBIND11_OVERRIDE(void, Game, on_draw);      }
-    void on_stop()           override { PYBIND11_OVERRIDE(void, Game, on_stop);      }
+    void on_start()              override { PYBIND11_OVERRIDE(void, Game, on_start);     }
+    void on_update(float dt)     override { PYBIND11_OVERRIDE(void, Game, on_update, dt);}
+    void on_draw()               override { PYBIND11_OVERRIDE(void, Game, on_draw);      }
+    void on_stop()               override { PYBIND11_OVERRIDE(void, Game, on_stop);      }
+    void on_resize(int w, int h) override { PYBIND11_OVERRIDE(void, Game, on_resize, w, h); }
 };
 
 // Trampoline for Python Node subclasses
@@ -78,13 +94,20 @@ void run_game(Game& game, const std::string& title, int width, int height) {
     loom::Window   window(title, width, height);
     loom::Renderer renderer(window); // sets up sokol_gfx
 
-    game.scene.camera.set_viewport(width, height);
+    // Resolve the logical/design resolution: default to the initial window size.
+    int logical_w = game.logical_width  > 0 ? game.logical_width  : width;
+    int logical_h = game.logical_height > 0 ? game.logical_height : height;
+    game.logical_width  = logical_w;
+    game.logical_height = logical_h;
+
+    game.scene.camera.set_viewport(logical_w, logical_h);
     // Default: world (0,0) = screen top-left, matching pixel/screen coordinates
-    game.scene.camera.set_position(loom::Vec2(width * 0.5f, height * 0.5f));
+    game.scene.camera.set_position(loom::Vec2(logical_w * 0.5f, logical_h * 0.5f));
 
     game.on_start();
 
     Uint64 last_ticks = SDL_GetTicks();
+    int    last_dw = -1, last_dh = -1;
 
     while (game.running && window.poll_events()) {
         loom::Input::update();
@@ -94,12 +117,37 @@ void run_game(Game& game, const std::string& title, int width, int height) {
         last_ticks = now;
         dt = std::min(dt, 0.1f);
 
+        // Track the real drawable size (changes on resize / DPI moves) and map
+        // the logical resolution onto it according to the chosen scale mode.
+        int dw = window.drawable_width();
+        int dh = window.drawable_height();
+        if (dw != last_dw || dh != last_dh) {
+            game.screen_width  = dw;
+            game.screen_height = dh;
+            if (last_dw >= 0) game.on_resize(dw, dh); // skip the initial frame
+            last_dw = dw; last_dh = dh;
+        }
+        loom::ScaleResult sr =
+            loom::compute_scaling(game.scale_mode, logical_w, logical_h, dw, dh);
+        game.scene.camera.set_viewport(static_cast<int>(std::lround(sr.cam_w)),
+                                       static_cast<int>(std::lround(sr.cam_h)));
+
+        // Remap the OS pointer (window points) into logical units so that
+        // screen_to_world(mouse_position()) is correct under any scale mode / DPI.
+        int pw = dw, ph = dh;
+        SDL_GetWindowSize(window.sdl_window(), &pw, &ph);
+        loom::Vec2 mp = loom::Input::mouse_position();
+        float mlx, mly;
+        loom::window_point_to_logical(sr, dw, dh, pw, ph, mp.x, mp.y, mlx, mly);
+        loom::Input::set_mouse_position(loom::Vec2(mlx, mly));
+
         game.on_update(dt);
 
         if (game.auto_physics) game.physics.step(dt);
         if (game.auto_scene)   game.scene.update(dt);
 
         renderer.begin_frame(game.clear_color);
+        renderer.set_viewport(sr.vp_x, sr.vp_y, sr.vp_w, sr.vp_h);
         if (game.auto_scene) game.scene.draw(renderer);
         game.on_draw();
         renderer.end_frame();
@@ -218,9 +266,19 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_property("rotation",   &loom::Camera::rotation,
                                     &loom::Camera::set_rotation)
         .def("move",                &loom::Camera::move)
+        .def("set_viewport",        &loom::Camera::set_viewport,
+             py::arg("width"), py::arg("height"))
         .def("world_to_screen",     &loom::Camera::world_to_screen)
         .def("screen_to_world",     &loom::Camera::screen_to_world)
         .def("visible_rect",        &loom::Camera::visible_rect);
+
+    // ── ScaleMode ─────────────────────────────────────────────────────────────
+    py::enum_<loom::ScaleMode>(m, "ScaleMode")
+        .value("Fit",          loom::ScaleMode::Fit)
+        .value("Stretch",      loom::ScaleMode::Stretch)
+        .value("Expand",       loom::ScaleMode::Expand)
+        .value("PixelPerfect", loom::ScaleMode::PixelPerfect)
+        .export_values();
 
     // ── Texture ───────────────────────────────────────────────────────────────
     py::class_<loom::Texture, std::shared_ptr<loom::Texture>>(m, "Texture")
@@ -522,6 +580,11 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_readwrite("auto_physics", &Game::auto_physics)
         .def_readwrite("auto_scene",   &Game::auto_scene)
         .def_readwrite("running",      &Game::running)
+        .def_readwrite("logical_width",  &Game::logical_width)
+        .def_readwrite("logical_height", &Game::logical_height)
+        .def_readwrite("scale_mode",     &Game::scale_mode)
+        .def_property_readonly("screen_width",  [](Game& g) { return g.screen_width;  })
+        .def_property_readonly("screen_height", [](Game& g) { return g.screen_height; })
         .def_property_readonly("last_draw_calls", [](Game& g) { return g.last_draw_calls; })
         .def_property_readonly("physics", [](Game& g) -> loom::PhysicsWorld& { return g.physics; },
                                py::return_value_policy::reference_internal)
@@ -532,7 +595,8 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def("on_start",  &Game::on_start)
         .def("on_update", &Game::on_update, py::arg("dt"))
         .def("on_draw",   &Game::on_draw)
-        .def("on_stop",   &Game::on_stop);
+        .def("on_stop",   &Game::on_stop)
+        .def("on_resize", &Game::on_resize, py::arg("w"), py::arg("h"));
 
     // ── run() ─────────────────────────────────────────────────────────────────
     m.def("run", &run_game,

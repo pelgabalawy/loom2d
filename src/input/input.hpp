@@ -50,8 +50,13 @@ public:
     // True only on the frame the key was released
     static bool key_released(Key k);
 
-    // Mouse
+    // Mouse — position is in logical (design) units: run() remaps the raw OS
+    // pointer through the active scale mode each frame, so it lines up with the
+    // world and with screen_to_world().
     static Vec2 mouse_position();
+    // Overwrite the stored pointer position with engine-remapped logical coords.
+    // Called by run() after update(); unlike inject_*, does not enable test mode.
+    static void set_mouse_position(Vec2 pos);
     static bool mouse_down(MouseButton btn);
     static bool mouse_pressed(MouseButton btn);
     static bool mouse_released(MouseButton btn);

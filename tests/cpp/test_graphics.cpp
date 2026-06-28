@@ -2,6 +2,7 @@
 #include "math/mat4.hpp"
 #include "graphics/camera.hpp"
 #include "graphics/sprite_batcher.hpp"
+#include "graphics/scaling.hpp"
 #include <cmath>
 
 #ifndef M_PI
@@ -128,4 +129,118 @@ TEST(SpriteQuad, Rotation90) {
     // TR corner (32,0) rotates 90deg clockwise (y-down) to (0,32)
     EXPECT_NEAR(q.pos[1].x, 0.f,  1e-3f);
     EXPECT_NEAR(q.pos[1].y, 32.f, 1e-3f);
+}
+
+// ── compute_scaling (responsive resolution — Phase 2.7) ──────────────────────
+
+TEST(Scaling, ExactMatchIsFullViewport) {
+    // Drawable equals the logical resolution: full surface, no bars, logical cam.
+    auto r = compute_scaling(ScaleMode::Fit, 800, 600, 800, 600);
+    EXPECT_EQ(r.vp_x, 0); EXPECT_EQ(r.vp_y, 0);
+    EXPECT_EQ(r.vp_w, 800); EXPECT_EQ(r.vp_h, 600);
+    EXPECT_FLOAT_EQ(r.cam_w, 800.f);
+    EXPECT_FLOAT_EQ(r.cam_h, 600.f);
+}
+
+TEST(Scaling, FitPillarboxesWiderSurface) {
+    // 800x600 (4:3) onto 1200x600 (2:1): scale=1, centred, vertical bars at sides.
+    auto r = compute_scaling(ScaleMode::Fit, 800, 600, 1200, 600);
+    EXPECT_EQ(r.vp_w, 800);
+    EXPECT_EQ(r.vp_h, 600);
+    EXPECT_EQ(r.vp_x, 200); // (1200-800)/2 — pillarbox bars
+    EXPECT_EQ(r.vp_y, 0);
+    EXPECT_FLOAT_EQ(r.cam_w, 800.f); // logical viewport unchanged
+}
+
+TEST(Scaling, FitLetterboxesTallerSurface) {
+    // 800x600 onto 800x900: scale=1, centred, horizontal bars top/bottom.
+    auto r = compute_scaling(ScaleMode::Fit, 800, 600, 800, 900);
+    EXPECT_EQ(r.vp_w, 800);
+    EXPECT_EQ(r.vp_h, 600);
+    EXPECT_EQ(r.vp_x, 0);
+    EXPECT_EQ(r.vp_y, 150); // (900-600)/2
+}
+
+TEST(Scaling, FitScalesUpPreservingAspect) {
+    // 2x HiDPI: 800x600 onto 1600x1200 → fills exactly, scale 2, no bars.
+    auto r = compute_scaling(ScaleMode::Fit, 800, 600, 1600, 1200);
+    EXPECT_EQ(r.vp_x, 0); EXPECT_EQ(r.vp_y, 0);
+    EXPECT_EQ(r.vp_w, 1600); EXPECT_EQ(r.vp_h, 1200);
+}
+
+TEST(Scaling, StretchFillsWholeSurface) {
+    auto r = compute_scaling(ScaleMode::Stretch, 800, 600, 1200, 600);
+    EXPECT_EQ(r.vp_x, 0); EXPECT_EQ(r.vp_y, 0);
+    EXPECT_EQ(r.vp_w, 1200); EXPECT_EQ(r.vp_h, 600);
+    EXPECT_FLOAT_EQ(r.cam_w, 800.f); // logical projection stretched → distorts
+    EXPECT_FLOAT_EQ(r.cam_h, 600.f);
+}
+
+TEST(Scaling, ExpandFillsAndRevealsMoreWorld) {
+    // 800x600 onto 1200x600: scale=min(1.5,1)=1, viewport full, camera widens.
+    auto r = compute_scaling(ScaleMode::Expand, 800, 600, 1200, 600);
+    EXPECT_EQ(r.vp_w, 1200);
+    EXPECT_EQ(r.vp_h, 600);
+    EXPECT_FLOAT_EQ(r.cam_w, 1200.f); // 1200/1 — more world horizontally
+    EXPECT_FLOAT_EQ(r.cam_h, 600.f);  // unchanged on the tight axis
+}
+
+TEST(Scaling, PixelPerfectUsesIntegerScale) {
+    // 320x240 onto 700x540: float scale ~2.18 → integer 2 → 640x480 centred.
+    auto r = compute_scaling(ScaleMode::PixelPerfect, 320, 240, 700, 540);
+    EXPECT_EQ(r.vp_w, 640);
+    EXPECT_EQ(r.vp_h, 480);
+    EXPECT_EQ(r.vp_x, 30); // (700-640)/2
+    EXPECT_EQ(r.vp_y, 30); // (540-480)/2
+}
+
+TEST(Scaling, PixelPerfectNeverScalesBelowOne) {
+    // Surface smaller than logical: clamp to 1x rather than 0.
+    auto r = compute_scaling(ScaleMode::PixelPerfect, 320, 240, 200, 150);
+    EXPECT_EQ(r.vp_w, 320);
+    EXPECT_EQ(r.vp_h, 240);
+}
+
+// ── window_point_to_logical (pointer remap) ──────────────────────────────────
+
+TEST(Scaling, PointerIdentityWhenUnscaled) {
+    // Logical == window, no HiDPI: pointer passes through unchanged.
+    auto r = compute_scaling(ScaleMode::Fit, 800, 600, 800, 600);
+    float lx, ly;
+    window_point_to_logical(r, 800, 600, 800, 600, 123.f, 456.f, lx, ly);
+    EXPECT_FLOAT_EQ(lx, 123.f);
+    EXPECT_FLOAT_EQ(ly, 456.f);
+}
+
+TEST(Scaling, PointerSubtractsLetterboxBars) {
+    // 800x600 onto 1200x600: 200px pillarbox each side. A pointer at the left
+    // edge of the content (x=200) maps to logical x=0; window centre → centre.
+    auto r = compute_scaling(ScaleMode::Fit, 800, 600, 1200, 600);
+    float lx, ly;
+    window_point_to_logical(r, 1200, 600, 1200, 600, 200.f, 0.f, lx, ly);
+    EXPECT_FLOAT_EQ(lx, 0.f);
+    EXPECT_FLOAT_EQ(ly, 0.f);
+    window_point_to_logical(r, 1200, 600, 1200, 600, 600.f, 300.f, lx, ly);
+    EXPECT_FLOAT_EQ(lx, 400.f); // (600-200)/800*800
+    EXPECT_FLOAT_EQ(ly, 300.f);
+}
+
+TEST(Scaling, PointerAccountsForHiDpiRatio) {
+    // 800x600 logical, 2x display: window 800x600 points, drawable 1600x1200 px.
+    // Fit fills exactly (scale 2); pointer at window centre → logical centre.
+    auto r = compute_scaling(ScaleMode::Fit, 800, 600, 1600, 1200);
+    float lx, ly;
+    window_point_to_logical(r, 1600, 1200, 800, 600, 400.f, 300.f, lx, ly);
+    EXPECT_FLOAT_EQ(lx, 400.f);
+    EXPECT_FLOAT_EQ(ly, 300.f);
+}
+
+TEST(Scaling, PointerExpandReturnsWidenedRange) {
+    // Expand: camera widens to draw_w/scale; pointer at the right window edge
+    // maps to the full widened logical width, not the original logical width.
+    auto r = compute_scaling(ScaleMode::Expand, 800, 600, 1200, 600);
+    float lx, ly;
+    window_point_to_logical(r, 1200, 600, 1200, 600, 1200.f, 600.f, lx, ly);
+    EXPECT_FLOAT_EQ(lx, 1200.f); // cam_w == 1200 in this Expand case
+    EXPECT_FLOAT_EQ(ly, 600.f);
 }

@@ -45,6 +45,8 @@ bool Input::key_released(Key k) {
 
 Vec2 Input::mouse_position() { return s_mouse_pos; }
 
+void Input::set_mouse_position(Vec2 pos) { s_mouse_pos = pos; }
+
 bool Input::mouse_down(MouseButton btn) {
     int i = static_cast<int>(btn);
     return i >= 1 && i <= 3 && s_mouse_current[i];
