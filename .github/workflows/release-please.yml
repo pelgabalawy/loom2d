@@ -48,6 +48,7 @@ jobs:
         if: ${{ steps.rp.outputs.prs_created == 'true' || steps.rp.outputs.pr }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           PR_JSON: ${{ steps.rp.outputs.pr }}
         run: |
           num=$(jq -r '.number // empty' <<< "$PR_JSON")
@@ -59,6 +60,7 @@ jobs:
         if: ${{ steps.rp.outputs.prs_created == 'true' || steps.rp.outputs.pr }}
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           PR_JSON: ${{ steps.rp.outputs.pr }}
         run: |
           num=$(jq -r '.number // empty' <<< "$PR_JSON")
