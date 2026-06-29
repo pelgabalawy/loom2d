@@ -15,7 +15,7 @@ Prebuilt wheels are published with each [GitHub Release](https://github.com/pelg
 Download the wheel matching your platform and Python version, then:
 
 ```bash
-pip install loom2d-0.1.0-cp311-cp311-win_amd64.whl
+pip install loom2d-0.3.0-cp311-cp311-win_amd64.whl
 ```
 
 Verify the install:

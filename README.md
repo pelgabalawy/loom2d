@@ -181,13 +181,20 @@ Each platform has its own build-→test-→fix verification pass.
 
 Contributions are very welcome — this project is meant to grow with its community! 🌱
 
-- **All changes land via pull request.** The `main` branch is protected and
-  requires maintainer review/approval before merging — please open a PR rather
-  than pushing directly.
-- Fork the repo, create a branch, and make sure `run_tests` is green before
-  opening your PR.
+- **All changes land via pull request.** `main` is protected: a PR needs the
+  required test checks to pass **and** one maintainer approval before it merges
+  (you can't approve your own).
+- **PR titles use [Conventional Commits](https://www.conventionalcommits.org/)**
+  (`feat:` → minor, `fix:` → patch, `feat!:` → major; `docs:`/`chore:`/`ci:` don't
+  release). We squash-merge, so the title becomes the commit — and drives the
+  next version automatically.
+- **Releases are automated** via [release-please](https://github.com/googleapis/release-please):
+  merging a `feat`/`fix` opens a release PR that auto-merges and ships wheels — no
+  manual tagging.
 - New features should come with tests (C++ in `tests/cpp/`, Python in `tests/python/`).
-- For larger changes, open an issue first to discuss the approach.
+
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the full workflow, the commit
+convention, how releases work, and how to build & test locally.
 
 ## License
 
