@@ -104,12 +104,19 @@ void run_game(Game& game, const std::string& title, int width, int height) {
     // Default: world (0,0) = screen top-left, matching pixel/screen coordinates
     game.scene.camera.set_position(loom::Vec2(logical_w * 0.5f, logical_h * 0.5f));
 
+    // Let Input activate text input against this window when asked.
+    loom::Input::set_window(window.sdl_window());
+
     game.on_start();
 
     Uint64 last_ticks = SDL_GetTicks();
     int    last_dw = -1, last_dh = -1;
 
-    while (game.running && window.poll_events()) {
+    while (game.running) {
+        // Reset per-frame input accumulators, then pump SDL events (which Window
+        // forwards into Input). poll_events() returns false on quit/Escape.
+        loom::Input::new_frame();
+        if (!window.poll_events()) break;
         loom::Input::update();
 
         Uint64 now = SDL_GetTicks();
@@ -140,6 +147,8 @@ void run_game(Game& game, const std::string& title, int width, int height) {
         float mlx, mly;
         loom::window_point_to_logical(sr, dw, dh, pw, ph, mp.x, mp.y, mlx, mly);
         loom::Input::set_mouse_position(loom::Vec2(mlx, mly));
+        // Remap touch finger positions into logical units the same way.
+        loom::Input::remap_touches(sr, dw, dh, pw, ph);
 
         game.on_update(dt);
 
@@ -465,6 +474,8 @@ PYBIND11_MODULE(loom2d_native, m) {
         .value("Shift",  loom::Key::Shift) .value("Ctrl",  loom::Key::Ctrl)
         .value("F1",     loom::Key::F1)    .value("F5",    loom::Key::F5)
         .value("F12",    loom::Key::F12)
+        .value("Backspace", loom::Key::Backspace) .value("Delete", loom::Key::Delete)
+        .value("Home",      loom::Key::Home)      .value("End",    loom::Key::End)
         .export_values();
 
     py::enum_<loom::MouseButton>(m, "MouseButton")
@@ -473,16 +484,100 @@ PYBIND11_MODULE(loom2d_native, m) {
         .value("Right",  loom::MouseButton::Right)
         .export_values();
 
+    // ── GamepadButton / GamepadAxis ───────────────────────────────────────────
+    py::enum_<loom::GamepadButton>(m, "GamepadButton")
+        .value("South",         loom::GamepadButton::South)
+        .value("East",          loom::GamepadButton::East)
+        .value("West",          loom::GamepadButton::West)
+        .value("North",         loom::GamepadButton::North)
+        .value("Back",          loom::GamepadButton::Back)
+        .value("Guide",         loom::GamepadButton::Guide)
+        .value("Start",         loom::GamepadButton::Start)
+        .value("LeftStick",     loom::GamepadButton::LeftStick)
+        .value("RightStick",    loom::GamepadButton::RightStick)
+        .value("LeftShoulder",  loom::GamepadButton::LeftShoulder)
+        .value("RightShoulder", loom::GamepadButton::RightShoulder)
+        .value("DpadUp",        loom::GamepadButton::DpadUp)
+        .value("DpadDown",      loom::GamepadButton::DpadDown)
+        .value("DpadLeft",      loom::GamepadButton::DpadLeft)
+        .value("DpadRight",     loom::GamepadButton::DpadRight)
+        .export_values();
+
+    py::enum_<loom::GamepadAxis>(m, "GamepadAxis")
+        .value("LeftX",        loom::GamepadAxis::LeftX)
+        .value("LeftY",        loom::GamepadAxis::LeftY)
+        .value("RightX",       loom::GamepadAxis::RightX)
+        .value("RightY",       loom::GamepadAxis::RightY)
+        .value("TriggerLeft",  loom::GamepadAxis::TriggerLeft)
+        .value("TriggerRight", loom::GamepadAxis::TriggerRight)
+        .export_values();
+
+    // ── TouchPoint ────────────────────────────────────────────────────────────
+    py::class_<loom::TouchPoint>(m, "TouchPoint")
+        .def_readonly("id",       &loom::TouchPoint::id)
+        .def_readonly("position", &loom::TouchPoint::position)
+        .def_readonly("pressure", &loom::TouchPoint::pressure)
+        .def("__repr__", [](const loom::TouchPoint& t){
+            return "TouchPoint(id=" + std::to_string(t.id) + ", pos=("
+                 + std::to_string(t.position.x) + ", "
+                 + std::to_string(t.position.y) + "))";
+        });
+
     // ── Input (static class) ─────────────────────────────────────────────────
     py::class_<loom::Input>(m, "Input")
+        // Frame lifecycle (run() drives this; exposed for headless tests)
+        .def_static("new_frame", &loom::Input::new_frame)
+        // Keyboard
         .def_static("key_down",     &loom::Input::key_down)
         .def_static("key_pressed",  &loom::Input::key_pressed)
         .def_static("key_released", &loom::Input::key_released)
+        // Mouse
         .def_static("mouse_position", &loom::Input::mouse_position)
         .def_static("mouse_down",     &loom::Input::mouse_down)
         .def_static("mouse_pressed",  &loom::Input::mouse_pressed)
-        .def_static("inject_key_down", &loom::Input::inject_key_down)
-        .def_static("inject_key_up",   &loom::Input::inject_key_up);
+        .def_static("mouse_released", &loom::Input::mouse_released)
+        .def_static("mouse_wheel",    &loom::Input::mouse_wheel)
+        // Gamepad
+        .def_static("gamepad_count",     &loom::Input::gamepad_count)
+        .def_static("gamepad_connected", &loom::Input::gamepad_connected,
+                    py::arg("index")=0)
+        .def_static("gamepad_down",      &loom::Input::gamepad_down,
+                    py::arg("button"), py::arg("index")=0)
+        .def_static("gamepad_pressed",   &loom::Input::gamepad_pressed,
+                    py::arg("button"), py::arg("index")=0)
+        .def_static("gamepad_released",  &loom::Input::gamepad_released,
+                    py::arg("button"), py::arg("index")=0)
+        .def_static("gamepad_axis",      &loom::Input::gamepad_axis,
+                    py::arg("axis"), py::arg("index")=0)
+        .def_static("set_gamepad_deadzone", &loom::Input::set_gamepad_deadzone)
+        .def_static("gamepad_deadzone",     &loom::Input::gamepad_deadzone)
+        .def_static("gamepad_rumble",    &loom::Input::gamepad_rumble,
+                    py::arg("low"), py::arg("high"), py::arg("duration_ms"),
+                    py::arg("index")=0)
+        // Touch
+        .def_static("touch_count",   &loom::Input::touch_count)
+        .def_static("touches",       &loom::Input::touches)
+        .def_static("touches_began", &loom::Input::touches_began)
+        .def_static("touches_ended", &loom::Input::touches_ended)
+        // Text input
+        .def_static("start_text_input",  &loom::Input::start_text_input)
+        .def_static("stop_text_input",   &loom::Input::stop_text_input)
+        .def_static("text_input_active", &loom::Input::text_input_active)
+        .def_static("text_input",        &loom::Input::text_input)
+        // Test injection
+        .def_static("inject_key_down",  &loom::Input::inject_key_down)
+        .def_static("inject_key_up",    &loom::Input::inject_key_up)
+        .def_static("inject_mouse_wheel", &loom::Input::inject_mouse_wheel)
+        .def_static("inject_text_input",  &loom::Input::inject_text_input)
+        .def_static("inject_gamepad_add",    &loom::Input::inject_gamepad_add)
+        .def_static("inject_gamepad_remove", &loom::Input::inject_gamepad_remove)
+        .def_static("inject_gamepad_button", &loom::Input::inject_gamepad_button,
+                    py::arg("index"), py::arg("button"), py::arg("down"))
+        .def_static("inject_gamepad_axis",   &loom::Input::inject_gamepad_axis,
+                    py::arg("index"), py::arg("axis"), py::arg("value"))
+        .def_static("inject_touch",          &loom::Input::inject_touch,
+                    py::arg("id"), py::arg("logical_pos"), py::arg("pressure")=1.f)
+        .def_static("inject_touch_release",  &loom::Input::inject_touch_release);
 
     // ── BodyType ──────────────────────────────────────────────────────────────
     py::enum_<loom::BodyType>(m, "BodyType")

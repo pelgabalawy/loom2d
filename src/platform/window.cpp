@@ -1,4 +1,5 @@
 #include "platform/window.hpp"
+#include "input/input.hpp"
 #include <stdexcept>
 #include <string>
 
@@ -60,12 +61,16 @@ int Window::drawable_height() const {
 }
 
 bool Window::poll_events() {
+    bool keep_running = true;
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
-        if (e.type == SDL_EVENT_QUIT) return false;
-        if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE) return false;
+        // Feed every event to Input (gamepad hot-plug, wheel, text, fingers).
+        Input::process_event(e);
+        if (e.type == SDL_EVENT_QUIT) keep_running = false;
+        if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE)
+            keep_running = false;
     }
-    return true;
+    return keep_running;
 }
 
 void Window::present() {

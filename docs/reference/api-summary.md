@@ -69,9 +69,12 @@ For resolution independence: `logical_width`, `logical_height`, `scale_mode`,
 
 | Type | Summary |
 |------|---------|
-| `Input` | static: `key_down`, `key_pressed`, `key_released`, `mouse_position`, `mouse_down`, `mouse_pressed` |
-| `Key` | `A`–`Z`, arrows, `Space`, `Enter`, `Escape`, `Tab`, `Shift`, `Ctrl`, `F1`/`F5`/`F12` |
+| `Input` | static. Keyboard: `key_down/pressed/released`. Mouse: `mouse_position`, `mouse_down/pressed/released`, `mouse_wheel`. Gamepad: `gamepad_connected`, `gamepad_count`, `gamepad_down/pressed/released`, `gamepad_axis`, `gamepad_rumble`, `set_gamepad_deadzone`. Touch: `touches`, `touches_began/ended`, `touch_count`. Text: `start_text_input`, `stop_text_input`, `text_input` |
+| `Key` | `A`–`Z`, arrows, `Space`, `Enter`, `Escape`, `Tab`, `Shift`, `Ctrl`, `Backspace`, `Delete`, `Home`, `End`, `F1`/`F5`/`F12` |
 | `MouseButton` | `Left`, `Middle`, `Right` |
+| `GamepadButton` | `South`/`East`/`West`/`North` (A/B/X/Y), `Back`, `Guide`, `Start`, `LeftStick`, `RightStick`, `LeftShoulder`, `RightShoulder`, `DpadUp`/`Down`/`Left`/`Right` |
+| `GamepadAxis` | `LeftX`, `LeftY`, `RightX`, `RightY`, `TriggerLeft`, `TriggerRight` |
+| `TouchPoint` | `id`, `position` (logical units), `pressure` |
 
 ## Physics — [guide](../guides/physics.md) · [events](../guides/physics-events.md)
 
