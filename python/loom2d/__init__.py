@@ -42,6 +42,9 @@ from loom2d_native import (
     Input,
     Key,
     MouseButton,
+    GamepadButton,
+    GamepadAxis,
+    TouchPoint,
     # Physics
     PhysicsWorld,
     PhysicsBody,
@@ -65,7 +68,7 @@ __all__ = [
     "Tilemap", "TileLayer", "Tileset",
     "Font", "TextNode", "TextAlign",
     "Animation", "AnimationFrame",
-    "Input", "Key", "MouseButton",
+    "Input", "Key", "MouseButton", "GamepadButton", "GamepadAxis", "TouchPoint",
     "PhysicsWorld", "PhysicsBody", "BodyType",
     "ContactPair", "SensorPair", "RaycastHit",
     "AudioEngine",

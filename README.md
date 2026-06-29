@@ -34,11 +34,13 @@ and assets in native code that compiles for every target platform.
 
 - 🎮 **Pure-Python game code** — subclass `loom.Game`, implement `on_update` / `on_draw`
 - 🧱 **Scene graph** — nodes with parent/child transforms, sprites, animations
-- 🕹️ **Input** — keyboard & mouse (touch/gamepad on the roadmap)
-- ⚙️ **Physics** — [Box2D v3](https://github.com/erincatto/box2d) with a pixel-space API
+- 🎨 **GPU rendering** — sokol_gfx sprite batcher, tilemaps with culling, TTF text
+- 🕹️ **Input** — keyboard, mouse + wheel, **gamepad** (hot-plug, rumble), **touch**, **text input**
+- 📐 **Responsive** — logical resolution + letterbox/stretch/expand scale modes, HiDPI
+- ⚙️ **Physics** — [Box2D v3](https://github.com/erincatto/box2d) with a pixel-space API + collision events
 - 🔊 **Audio** — SFX + streaming music via [miniaudio](https://github.com/mackron/miniaudio)
 - 🖼️ **Assets** — ref-counted texture cache (PNG/JPG via stb_image)
-- 🧪 **Tested** — 94 C++ (GoogleTest) + 94 Python (pytest) unit tests
+- 🧪 **Tested** — 172 C++ (GoogleTest) + 147 Python (pytest) unit tests
 - 📦 **Zero manual deps** — CMake fetches and builds everything for you
 
 ## Status
@@ -51,9 +53,11 @@ and assets in native code that compiles for every target platform.
 | Android / iOS | ⏳ Planned |
 
 > **Working today on desktop.** GPU sprite batching (sokol_gfx), tilemaps, text
-> rendering, audio, and a Box2D-v3 physics engine with collision events are all in
-> and tested. A UI toolkit, gamepad/touch input, and mobile targets are next — see
-> the [Roadmap](#roadmap).
+> rendering, audio, a Box2D-v3 physics engine with collision events, responsive
+> resolution scaling, and full input breadth (gamepad, touch, mouse-wheel, text
+> input) are all in and tested. A UI toolkit, core game systems (scenes/timers/
+> tweens/save-load), a LÖVE-style shader pipeline, and mobile targets are next —
+> see the [Roadmap](#roadmap).
 
 ## 📖 Documentation
 
@@ -129,7 +133,10 @@ See [`examples/`](examples/) for more:
 |---|---|
 | [`hello_world`](examples/hello_world) | Minimal window + game loop |
 | [`flappy`](examples/flappy) | Component-based architecture, input, collision, scoring |
-| [`platformer`](examples/platformer) | Box2D physics, gravity, jumping |
+| [`platformer`](examples/platformer) | Box2D physics, gravity, jumping, collision events |
+| [`coin_quest`](examples/coin_quest) | Tilemaps, grid collision, camera follow, text HUD |
+| [`responsive`](examples/responsive) | Logical resolution + live scale-mode switching |
+| [`input_demo`](examples/input_demo) | Gamepad, touch, mouse-wheel & text input |
 
 ## Architecture
 
@@ -151,14 +158,22 @@ A deeper diagram and layer-by-layer breakdown live in
 
 ## Roadmap
 
-**Next up — the "big-game track"** (what's needed for a large tile-based RPG):
+**Shipped — the rendering/gameplay foundation:**
 
-1. **GPU SpriteBatcher** (sokol_gfx) — thousands of sprites at 60fps *(highest priority)*
-2. **Tilemap system** — `.tmx` loader, grid collision, layers
-3. **Text rendering** — stb_truetype font atlas, `TextNode`
-4. **UI toolkit** — panels, buttons, labels, inventory grids
+- ✅ **GPU SpriteBatcher** (sokol_gfx) — thousands of sprites at 60fps
+- ✅ **Tilemap system** — `.tmx` loader, grid collision, viewport culling, layers
+- ✅ **Text rendering** — stb_truetype font atlas, `TextNode`
+- ✅ **Physics collision events** — contacts, sensors, raycasts (Box2D v3)
+- ✅ **Responsive scaling** — logical resolution + Fit/Stretch/Expand/PixelPerfect
+- ✅ **Input breadth** — gamepad (hot-plug, rumble), touch, mouse-wheel, text input
 
-**Then:** particles & polish → Android → iOS.
+**Next up — toward a polished, shippable game:**
+
+1. **UI toolkit** — panels, buttons, labels, inventory grids, hit-testing
+2. **Core game systems** — scene management/transitions, timers, tweens, save/load
+3. **LÖVE-style rendering** — custom shaders, blend modes, render-to-texture canvases
+4. **Effects** — particles + lighting
+5. **Desktop standalone packaging**, then **Android → iOS**
 
 Each platform has its own build-→test-→fix verification pass.
 
