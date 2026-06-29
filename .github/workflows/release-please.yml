@@ -2,9 +2,16 @@ name: Release Please
 
 # Continuous release automation. On every push to main, release-please maintains
 # a rolling "release PR" that bumps the version (in pyproject.toml) and updates
-# CHANGELOG.md from the Conventional-Commit history. Merging that release PR
-# creates the git tag + GitHub Release, and this workflow then builds the wheels
-# and attaches them to that release — so a reviewed, merged release PR ships.
+# CHANGELOG.md from the Conventional-Commit history. That release PR is then
+# approved + auto-merged automatically; merging it creates the git tag + GitHub
+# Release, and this workflow builds the wheels and attaches them. Net effect:
+# every feat/fix merge to main ships a release with no manual step.
+#
+# The release PR is opened with a Personal Access Token (RELEASE_PLEASE_TOKEN)
+# rather than the default GITHUB_TOKEN: PRs opened by GITHUB_TOKEN do NOT trigger
+# other workflows (GitHub anti-recursion), so the required Tests checks would
+# never run on the release PR and auto-merge would hang. A PAT-opened PR triggers
+# them normally.
 on:
   push:
     branches: [main]
@@ -24,14 +31,44 @@ jobs:
       - uses: googleapis/release-please-action@v4
         id: rp
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  # When release-please just created a release, build the wheels and attach them.
-  # Done in this run (not via a tag-push trigger) because workflows can't be
-  # triggered by events the default GITHUB_TOKEN raises — so we call the reusable
-  # build workflow directly instead of relying on a tag-push cascade.
+      # Approve + auto-merge the rolling release PR so it ships on its own once the
+      # required Tests checks pass. Skipped on the run that just cut a release
+      # (no pending PR). Two identities, deliberately:
+      #   * Approval  → default GITHUB_TOKEN (github-actions[bot]), a DIFFERENT
+      #     identity from the PAT that opened the PR, so it satisfies the "1
+      #     review" branch-protection rule without an (illegal) self-approval.
+      #   * Auto-merge → the PAT. GitHub attributes the eventual merge to whoever
+      #     ENABLED auto-merge; it must be the PAT (not GITHUB_TOKEN) so the merge
+      #     push triggers the follow-up run that builds + attaches the wheels.
+      - name: Approve release PR (bot)
+        if: ${{ steps.rp.outputs.prs_created == 'true' || steps.rp.outputs.pr }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_JSON: ${{ steps.rp.outputs.pr }}
+        run: |
+          num=$(jq -r '.number // empty' <<< "$PR_JSON")
+          if [ -z "$num" ]; then echo "No release PR."; exit 0; fi
+          echo "Approving release PR #$num as github-actions[bot]"
+          gh pr review "$num" --approve
+
+      - name: Enable auto-merge on release PR (PAT)
+        if: ${{ steps.rp.outputs.prs_created == 'true' || steps.rp.outputs.pr }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          PR_JSON: ${{ steps.rp.outputs.pr }}
+        run: |
+          num=$(jq -r '.number // empty' <<< "$PR_JSON")
+          if [ -z "$num" ]; then echo "No release PR."; exit 0; fi
+          echo "Enabling auto-merge on release PR #$num"
+          gh pr merge "$num" --squash --auto
+
+  # When release-please just created a release (the auto-merged release PR landed),
+  # build the wheels and attach them. Done in this run rather than via a tag-push
+  # trigger because the default GITHUB_TOKEN can't cascade-trigger a tag workflow.
   wheels:
     name: Build & attach wheels
     needs: release-please
