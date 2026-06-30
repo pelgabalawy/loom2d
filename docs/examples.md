@@ -18,6 +18,7 @@ python examples/<name>/main.py
 | **coin_quest** | tilemaps + grid collision + a live HUD | top-down maze game |
 | **tilemap** | scrolling a large culled tilemap | 100×100 map |
 | **text_demo** | font loading, alignment, wrapping | spinning/scaling text |
+| **ui_demo** | [panels, buttons, labels, images & grids](guides/ui.md) | click buttons; UI stays fixed over a scrolling world |
 | **responsive** | [responsive scaling](guides/responsive-scaling.md) across window sizes | resize it; Q/W/E/R switch scale modes |
 | **input_demo** | [gamepad, touch, mouse-wheel & text input](guides/input.md) | stick/WASD move, wheel zoom, type a caption |
 | **stress_test** | the GPU sprite batcher | 10k sprites, reports FPS + draw calls |

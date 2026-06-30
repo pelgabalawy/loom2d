@@ -71,6 +71,7 @@ nav:
       - Physics: guides/physics.md
       - Physics Events: guides/physics-events.md
       - Text & Fonts: guides/text.md
+      - UI Toolkit: guides/ui.md
       - Audio: guides/audio.md
       - Assets: guides/assets.md
   - Reference:
