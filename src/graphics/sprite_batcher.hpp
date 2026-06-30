@@ -34,22 +34,32 @@ public:
     // Create GPU resources. Must be called once, after sg_setup().
     void init();
 
-    void set_view_projection(const Mat4& vp) { m_vp = vp; }
+    // Set the view-projection applied to subsequently-submitted geometry. May be
+    // changed mid-frame (e.g. world camera, then a fixed screen-space UI camera);
+    // each change starts a new batch so a single flush can mix both spaces. The
+    // matrix is applied per-batch as a uniform, so only one buffer upload is
+    // needed per frame (sokol forbids updating a buffer twice in a frame).
+    void set_view_projection(const Mat4& vp);
 
     void submit(const Texture& texture, const SpriteQuad& quad, const Color& tint);
 
     // Upload and emit all queued geometry. Called once per frame by the Renderer.
     void flush();
 
-    int draw_calls() const { return m_draw_calls; } // from the last flush
+    // Zero the per-frame draw-call counter (Renderer calls this at begin_frame).
+    void reset_draw_calls() { m_draw_calls = 0; }
+    int  draw_calls() const { return m_draw_calls; } // counted by the last flush
 
 private:
     struct Vertex { float x, y, u, v, r, g, b, a; };
-    struct Batch  { sg_view view; int start; int count; }; // start/count in vertices
+    // start/count in vertices; vp captured when the batch opens; gen distinguishes
+    // identical-texture runs submitted under different view-projections.
+    struct Batch  { sg_view view; int start; int count; Mat4 vp; unsigned gen; };
 
     void ensure_capacity(size_t vert_count);
 
-    Mat4                m_vp = Mat4::identity();
+    Mat4                m_vp  = Mat4::identity(); // current view-projection
+    unsigned            m_gen = 0;               // bumps on each set_view_projection
     std::vector<Vertex> m_verts;
     std::vector<Batch>  m_batches;
     int                 m_draw_calls = 0;
