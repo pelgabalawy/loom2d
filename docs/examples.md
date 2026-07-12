@@ -21,9 +21,32 @@ python examples/<name>/main.py
 | **ui_demo** | [panels, buttons, labels, images & grids](guides/ui.md) | click buttons; UI stays fixed over a scrolling world |
 | **responsive** | [responsive scaling](guides/responsive-scaling.md) across window sizes | resize it; Q/W/E/R switch scale modes |
 | **input_demo** | [gamepad, touch, mouse-wheel & text input](guides/input.md) | stick/WASD move, wheel zoom, type a caption |
+| **tetris_nes** | a complete, faithful **NES Tetris** clone | fixed 60 Hz logic, procedural audio, MUSIC/SFX toggles |
 | **stress_test** | the GPU sprite batcher | 10k sprites, reports FPS + draw calls |
 
 ## Highlights
+
+### tetris_nes — a whole game, faithfully
+
+A full NES (NTSC) Tetris clone, and the largest example: the well, next box,
+statistics panel, level-select menu, pause and top-out screens.
+
+It reproduces the original's mechanics rather than approximating them — the NES
+gravity table, 16-frame DAS charge with 6-frame auto-repeat, rotation with **no**
+wall kicks, soft-drop push-down points, the NES scoring and level curve, the
+piece randomiser's reroll, the centre-out line-clear curtain, and per-level piece
+palettes that recolour the whole field on a level-up.
+
+Two ideas in it are worth stealing for your own games:
+
+- **The rules live in a separate, engine-free module** (`tetris_core.py`), so the
+  game logic is testable without a window — the same split `coin_quest` uses.
+- **The simulation runs on a fixed 60 Hz accumulator**, decoupled from the render
+  rate, so NES frame counts stay exact on a 144 Hz monitor.
+
+Sound effects and the music loop are synthesised as square waves at startup, so
+the example ships no binary audio. The **MUSIC** and **SFX** buttons (bottom-left)
+are real [UI widgets](guides/ui.md) and mute the two independently.
 
 ### platformer — a playable physics game
 

@@ -139,6 +139,7 @@ See [`examples/`](examples/) for more:
 | [`responsive`](examples/responsive) | Logical resolution + live scale-mode switching |
 | [`input_demo`](examples/input_demo) | Gamepad, touch, mouse-wheel & text input |
 | [`ui_demo`](examples/ui_demo) | Panels, buttons, labels, images & grids over a scrolling world |
+| [`tetris_nes`](examples/tetris_nes) | A full NES Tetris clone — fixed 60 Hz logic, gamepad, UI toggles, procedural audio |
 
 ## Architecture
 
