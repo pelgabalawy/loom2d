@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/pelgabalawy/loom2d/compare/v0.4.1...v0.5.0) (2026-07-12)
+
+
+### Features
+
+* NES Tetris example — a full game built on loom2d ([#13](https://github.com/pelgabalawy/loom2d/issues/13)) ([335be24](https://github.com/pelgabalawy/loom2d/commit/335be24c178bf32828fc717ded99d9dea5f4ad67))
+
 ## [0.4.1](https://github.com/pelgabalawy/loom2d/compare/v0.4.0...v0.4.1) (2026-07-12)
 
 
