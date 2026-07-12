@@ -161,15 +161,21 @@ void SpriteBatcher::ensure_capacity(size_t need) {
     m_capacity = cap;
 }
 
+void SpriteBatcher::set_view_projection(const Mat4& vp) {
+    m_vp = vp;
+    ++m_gen; // force a new batch so geometry isn't merged across a vp change
+}
+
 void SpriteBatcher::submit(const Texture& texture, const SpriteQuad& q,
                            const Color& tint) {
     sg_view view = texture.view();
     static const int idx[6] = {0, 1, 2, 0, 2, 3}; // two triangles of TL,TR,BR,BL
 
-    if (!m_batches.empty() && m_batches.back().view.id == view.id) {
+    if (!m_batches.empty() && m_batches.back().view.id == view.id
+                           && m_batches.back().gen == m_gen) {
         m_batches.back().count += 6;
     } else {
-        m_batches.push_back({view, static_cast<int>(m_verts.size()), 6});
+        m_batches.push_back({view, static_cast<int>(m_verts.size()), 6, m_vp, m_gen});
     }
     for (int i = 0; i < 6; ++i) {
         int k = idx[i];
@@ -179,14 +185,13 @@ void SpriteBatcher::submit(const Texture& texture, const SpriteQuad& q,
 }
 
 void SpriteBatcher::flush() {
-    if (m_verts.empty()) { m_draw_calls = 0; return; }
+    if (m_verts.empty()) return;
 
     ensure_capacity(m_verts.size());
     sg_range data{ m_verts.data(), m_verts.size() * sizeof(Vertex) };
     sg_update_buffer(m_vbuf, &data);
 
     sg_apply_pipeline(m_pip);
-    sg_range vp_range{ m_vp.m.data(), sizeof(float) * 16 };
 
     for (const Batch& b : m_batches) {
         sg_bindings bind = {};
@@ -195,11 +200,12 @@ void SpriteBatcher::flush() {
         bind.views[0]                 = b.view;
         bind.samplers[0]              = m_smp;
         sg_apply_bindings(&bind);
+        sg_range vp_range{ b.vp.m.data(), sizeof(float) * 16 };
         sg_apply_uniforms(0, &vp_range);
         sg_draw(0, b.count, 1);
     }
 
-    m_draw_calls = static_cast<int>(m_batches.size());
+    m_draw_calls += static_cast<int>(m_batches.size());
     m_verts.clear();
     m_batches.clear();
 }

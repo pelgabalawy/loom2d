@@ -18,6 +18,9 @@
 #include "scene/tilemap.hpp"
 #include "text/font.hpp"
 #include "text/text_node.hpp"
+#include "ui/widget.hpp"
+#include "ui/widgets.hpp"
+#include "ui/ui_canvas.hpp"
 #include "input/input.hpp"
 #include "physics/physics.hpp"
 #include "audio/audio.hpp"
@@ -33,6 +36,7 @@ public:
 
     loom::Color        clear_color = loom::Color::cornflower();
     loom::Scene        scene;
+    loom::UICanvas     ui;        // screen-space UI layer (drawn after the scene)
     loom::PhysicsWorld physics;
     loom::AudioEngine  audio;
     loom::AssetManager assets;
@@ -88,6 +92,13 @@ public:
     }
 };
 
+// Trampoline so Python can subclass Widget and override on_click().
+class PyWidget : public loom::Widget {
+public:
+    using loom::Widget::Widget;
+    void on_click() override { PYBIND11_OVERRIDE(void, loom::Widget, on_click); }
+};
+
 // ── run() ─────────────────────────────────────────────────────────────────────
 
 void run_game(Game& game, const std::string& title, int width, int height) {
@@ -103,6 +114,10 @@ void run_game(Game& game, const std::string& title, int width, int height) {
     game.scene.camera.set_viewport(logical_w, logical_h);
     // Default: world (0,0) = screen top-left, matching pixel/screen coordinates
     game.scene.camera.set_position(loom::Vec2(logical_w * 0.5f, logical_h * 0.5f));
+
+    // The UI layer is laid out against the logical resolution in screen space,
+    // independent of where the world camera roams.
+    game.ui.set_screen(logical_w, logical_h);
 
     // Let Input activate text input against this window when asked.
     loom::Input::set_window(window.sdl_window());
@@ -152,6 +167,14 @@ void run_game(Game& game, const std::string& title, int width, int height) {
 
         game.on_update(dt);
 
+        // Lay out the UI against the logical screen, then dispatch the pointer
+        // (firing button callbacks) using the logical-space mouse from above.
+        game.ui.layout();
+        game.ui.update_input(loom::Input::mouse_position(),
+                             loom::Input::mouse_pressed(loom::MouseButton::Left),
+                             loom::Input::mouse_down(loom::MouseButton::Left),
+                             loom::Input::mouse_released(loom::MouseButton::Left));
+
         if (game.auto_physics) game.physics.step(dt);
         if (game.auto_scene)   game.scene.update(dt);
 
@@ -159,6 +182,11 @@ void run_game(Game& game, const std::string& title, int width, int height) {
         renderer.set_viewport(sr.vp_x, sr.vp_y, sr.vp_w, sr.vp_h);
         if (game.auto_scene) game.scene.draw(renderer);
         game.on_draw();
+        // Draw the UI on top with its own fixed screen-space view-projection. The
+        // batcher captures the matrix per-batch, so the single end_frame flush
+        // renders the world and the UI in one buffer upload.
+        renderer.batcher().set_view_projection(game.ui.camera.view_projection());
+        game.ui.draw(renderer);
         renderer.end_frame();
 
         game.last_draw_calls = renderer.batcher().draw_calls();
@@ -441,6 +469,103 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_property_readonly("font", &loom::TextNode::font)
         .def_property_readonly("size", &loom::TextNode::size);
 
+    // ── Widget (UI base) ────────────────────────────────────────────────────────
+    py::class_<loom::Widget, PyWidget, std::shared_ptr<loom::Widget>>(m, "Widget")
+        .def(py::init<>())
+        .def(py::init<std::string>())
+        .def_readwrite("name",      &loom::Widget::name)
+        .def_readwrite("visible",   &loom::Widget::visible)
+        .def_readwrite("enabled",   &loom::Widget::enabled)
+        .def_readwrite("focusable", &loom::Widget::focusable)
+        .def_readwrite("anchor",    &loom::Widget::anchor)
+        .def_readwrite("pivot",     &loom::Widget::pivot)
+        .def_readwrite("offset",    &loom::Widget::offset)
+        .def_readwrite("size",      &loom::Widget::size)
+        .def_property_readonly("hovered", [](loom::Widget& w){ return w.hovered; })
+        .def_property_readonly("pressed", [](loom::Widget& w){ return w.pressed; })
+        .def_property_readonly("focused", [](loom::Widget& w){ return w.focused; })
+        .def("add_child",          &loom::Widget::add_child)
+        .def("remove_from_parent", &loom::Widget::remove_from_parent)
+        .def("clear_children",     &loom::Widget::clear_children)
+        .def("rect",               &loom::Widget::rect)
+        .def("resolve_layout",     &loom::Widget::resolve_layout, py::arg("parent_rect"))
+        .def("children", [](const loom::Widget& w){ return w.children(); })
+        .def("on_click", &loom::Widget::on_click);
+
+    // ── Panel ─────────────────────────────────────────────────────────────────
+    py::class_<loom::Panel, loom::Widget, std::shared_ptr<loom::Panel>>(m, "Panel")
+        .def(py::init<>())
+        .def(py::init<loom::Color>(), py::arg("background"))
+        .def_readwrite("background",   &loom::Panel::background)
+        .def_readwrite("border_color", &loom::Panel::border_color)
+        .def_readwrite("border_width", &loom::Panel::border_width);
+
+    // ── Label ─────────────────────────────────────────────────────────────────
+    py::class_<loom::Label, loom::Widget, std::shared_ptr<loom::Label>>(m, "Label")
+        .def(py::init<>())
+        .def(py::init<std::shared_ptr<loom::Font>, std::string>(),
+             py::arg("font"), py::arg("text") = "")
+        .def_readwrite("color",   &loom::Label::color)
+        .def_readwrite("align",   &loom::Label::align)
+        .def_readwrite("vcenter", &loom::Label::vcenter)
+        .def_property("text", &loom::Label::text, &loom::Label::set_text)
+        .def("set_font", &loom::Label::set_font)
+        .def_property_readonly("font", &loom::Label::font);
+
+    // ── Button ────────────────────────────────────────────────────────────────
+    py::class_<loom::Button, loom::Widget, std::shared_ptr<loom::Button>>(m, "Button")
+        .def(py::init<>())
+        .def(py::init<std::shared_ptr<loom::Font>, std::string>(),
+             py::arg("font"), py::arg("caption") = "")
+        .def_readwrite("caption",     &loom::Button::caption)
+        .def_readwrite("text_color",  &loom::Button::text_color)
+        .def_readwrite("bg",          &loom::Button::bg)
+        .def_readwrite("bg_hover",    &loom::Button::bg_hover)
+        .def_readwrite("bg_pressed",  &loom::Button::bg_pressed)
+        .def_readwrite("bg_disabled", &loom::Button::bg_disabled)
+        .def_readwrite("on_clicked",  &loom::Button::on_clicked)
+        .def("set_font", &loom::Button::set_font)
+        .def_property_readonly("font", &loom::Button::font)
+        .def("current_background", &loom::Button::current_background);
+
+    // ── Image ─────────────────────────────────────────────────────────────────
+    py::class_<loom::Image, loom::Widget, std::shared_ptr<loom::Image>>(m, "Image")
+        .def(py::init<>())
+        .def(py::init<std::shared_ptr<loom::Texture>>(), py::arg("texture"))
+        .def_readwrite("tint",   &loom::Image::tint)
+        .def_readwrite("source", &loom::Image::source)
+        .def("set_texture", &loom::Image::set_texture)
+        .def_property_readonly("texture", &loom::Image::texture);
+
+    // ── Grid ──────────────────────────────────────────────────────────────────
+    py::class_<loom::Grid, loom::Widget, std::shared_ptr<loom::Grid>>(m, "Grid")
+        .def(py::init<>())
+        .def(py::init<int, loom::Vec2>(),
+             py::arg("columns"), py::arg("spacing") = loom::Vec2(0.f, 0.f))
+        .def_readwrite("columns", &loom::Grid::columns)
+        .def_readwrite("spacing", &loom::Grid::spacing);
+
+    // ── UICanvas ──────────────────────────────────────────────────────────────
+    py::class_<loom::UICanvas>(m, "UICanvas")
+        .def(py::init<>())
+        .def("add",        &loom::UICanvas::add)
+        .def("remove",     &loom::UICanvas::remove)
+        .def("clear",      &loom::UICanvas::clear)
+        .def("root",       &loom::UICanvas::root_ptr,
+             py::return_value_policy::reference_internal)
+        .def("set_screen", &loom::UICanvas::set_screen,
+             py::arg("width"), py::arg("height"))
+        .def_property_readonly("screen_width",  &loom::UICanvas::screen_width)
+        .def_property_readonly("screen_height", &loom::UICanvas::screen_height)
+        .def("layout",       &loom::UICanvas::layout)
+        .def("update_input", &loom::UICanvas::update_input,
+             py::arg("pointer"), py::arg("pressed"),
+             py::arg("down"), py::arg("released"))
+        .def("focus",        &loom::UICanvas::focus, py::arg("widget"))
+        .def("clear_focus",  &loom::UICanvas::clear_focus)
+        .def("focus_next",   &loom::UICanvas::focus_next)
+        .def_readwrite("camera", &loom::UICanvas::camera);
+
     // ── Scene ─────────────────────────────────────────────────────────────────
     py::class_<loom::Scene>(m, "Scene")
         .def(py::init<>())
@@ -681,6 +806,8 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_property_readonly("screen_width",  [](Game& g) { return g.screen_width;  })
         .def_property_readonly("screen_height", [](Game& g) { return g.screen_height; })
         .def_property_readonly("last_draw_calls", [](Game& g) { return g.last_draw_calls; })
+        .def_property_readonly("ui",      [](Game& g) -> loom::UICanvas& { return g.ui; },
+                               py::return_value_policy::reference_internal)
         .def_property_readonly("physics", [](Game& g) -> loom::PhysicsWorld& { return g.physics; },
                                py::return_value_policy::reference_internal)
         .def_property_readonly("audio",   [](Game& g) -> loom::AudioEngine&  { return g.audio;   },

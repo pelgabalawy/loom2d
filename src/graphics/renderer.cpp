@@ -1,4 +1,5 @@
 #include "graphics/renderer.hpp"
+#include "graphics/texture.hpp"
 #include "sokol_gfx.h"
 #include "sokol_log.h"
 
@@ -30,12 +31,45 @@ void Renderer::begin_frame(const Color& clear) {
     pass.swapchain.depth_format = SG_PIXELFORMAT_DEPTH_STENCIL;
     pass.swapchain.gl.framebuffer = 0; // default framebuffer
     sg_begin_pass(&pass);
+    m_batcher.reset_draw_calls(); // counter accumulates across this frame's flushes
 }
 
 void Renderer::set_viewport(int x, int y, int w, int h) {
     // origin_top_left = true matches our screen-space (y-down) viewport rects.
     sg_apply_viewport(x, y, w, h, true);
     sg_apply_scissor_rect(x, y, w, h, true);
+}
+
+const Texture& Renderer::white_texture() {
+    if (!m_white) {
+        const unsigned char px[4] = {255, 255, 255, 255};
+        m_white = Texture::from_memory(px, 1, 1);
+    }
+    return *m_white;
+}
+
+void Renderer::fill_rect(const Rect& dst, const Color& color) {
+    draw_texture(white_texture(), dst, color, {});
+}
+
+void Renderer::draw_texture(const Texture& texture, const Rect& dst,
+                            const Color& tint, Rect src) {
+    float u0 = 0.f, v0 = 0.f, u1 = 1.f, v1 = 1.f;
+    if (src.w > 0.f && src.h > 0.f && texture.width() > 0 && texture.height() > 0) {
+        u0 = src.x / texture.width();  u1 = (src.x + src.w) / texture.width();
+        v0 = src.y / texture.height(); v1 = (src.y + src.h) / texture.height();
+    }
+    // Axis-aligned screen quad, corner order TL, TR, BR, BL (matches the batcher).
+    SpriteQuad q;
+    q.pos[0] = {dst.x,         dst.y};
+    q.pos[1] = {dst.x + dst.w, dst.y};
+    q.pos[2] = {dst.x + dst.w, dst.y + dst.h};
+    q.pos[3] = {dst.x,         dst.y + dst.h};
+    q.uv[0][0] = u0; q.uv[0][1] = v0;
+    q.uv[1][0] = u1; q.uv[1][1] = v0;
+    q.uv[2][0] = u1; q.uv[2][1] = v1;
+    q.uv[3][0] = u0; q.uv[3][1] = v1;
+    m_batcher.submit(texture, q, tint);
 }
 
 void Renderer::end_frame() {

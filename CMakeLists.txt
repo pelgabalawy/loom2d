@@ -90,6 +90,9 @@ set(ENGINE_SOURCES
     src/scene/tilemap.cpp
     src/text/font.cpp
     src/text/text_node.cpp
+    src/ui/widget.cpp
+    src/ui/widgets.cpp
+    src/ui/ui_canvas.cpp
     src/input/input.cpp
     src/physics/physics.cpp
     src/audio/audio.cpp

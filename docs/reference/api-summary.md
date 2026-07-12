@@ -57,6 +57,23 @@ For resolution independence: `logical_width`, `logical_height`, `scale_mode`,
 | `TextNode(font, text="")` | drawable text: `text`, `color`, `align`, `max_width`, `origin`, `size` |
 | `TextAlign` | `Left`, `Center`, `Right` |
 
+## UI — [guide](../guides/ui.md)
+
+Screen-space widgets on `game.ui` (a `UICanvas`). Every widget has `anchor`,
+`pivot`, `offset`, `size` (anchored layout — a non-positive `size` fills the
+parent), plus `visible`, `enabled`, `add_child`, and read-only `hovered`,
+`pressed`, `focused`.
+
+| Type | Summary |
+|------|---------|
+| `UICanvas` | the layer on `game.ui`: `add`, `remove`, `clear`, `focus`, `clear_focus`, `focus_next`, `update_input`, `set_screen` |
+| `Widget` | layout base class (subclass it and override `on_click`) |
+| `Panel(background)` | solid rectangle: `background`, `border_color`, `border_width` |
+| `Label(font, text="")` | text: `text`, `color`, `align`, `vcenter` |
+| `Button(font, caption="")` | clickable: `caption`, `on_clicked`, `text_color`, `bg`/`bg_hover`/`bg_pressed`/`bg_disabled`; focusable |
+| `Image(texture)` | textured widget: `tint`, `source` |
+| `Grid(columns, spacing=Vec2())` | arranges children into equal cells: `columns`, `spacing` |
+
 ## Tilemaps — [guide](../guides/tilemaps.md)
 
 | Type | Summary |

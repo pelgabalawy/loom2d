@@ -35,6 +35,14 @@ from loom2d_native import (
     Font,
     TextNode,
     TextAlign,
+    # UI
+    Widget,
+    Panel,
+    Label,
+    Button,
+    Image,
+    Grid,
+    UICanvas,
     # Animation
     Animation,
     AnimationFrame,
@@ -67,6 +75,7 @@ __all__ = [
     "Node", "SpriteNode", "Scene", "Camera", "ScaleMode",
     "Tilemap", "TileLayer", "Tileset",
     "Font", "TextNode", "TextAlign",
+    "Widget", "Panel", "Label", "Button", "Image", "Grid", "UICanvas",
     "Animation", "AnimationFrame",
     "Input", "Key", "MouseButton", "GamepadButton", "GamepadAxis", "TouchPoint",
     "PhysicsWorld", "PhysicsBody", "BodyType",
