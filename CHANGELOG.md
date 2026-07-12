@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/pelgabalawy/loom2d/compare/v0.4.0...v0.4.1) (2026-07-12)
+
+
+### Bug Fixes
+
+* play_sound crashed the process (SoundHandle lifetime) ([#11](https://github.com/pelgabalawy/loom2d/issues/11)) ([754356b](https://github.com/pelgabalawy/loom2d/commit/754356b249921b49c3d439597c79bd055eb417cc))
+
 ## [0.4.0](https://github.com/pelgabalawy/loom2d/compare/v0.3.0...v0.4.0) (2026-07-12)
 
 
