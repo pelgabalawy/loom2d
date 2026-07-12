@@ -773,6 +773,14 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_readwrite("on_sensor_begin",  &loom::PhysicsWorld::on_sensor_begin)
         .def_readwrite("on_sensor_end",    &loom::PhysicsWorld::on_sensor_end);
 
+    // ── SoundHandle ───────────────────────────────────────────────────────────
+    // Returned by play_sound(). Optional to keep: the engine holds the sound
+    // alive until it finishes on its own.
+    py::class_<loom::SoundHandle>(m, "SoundHandle")
+        .def_property_readonly("playing", &loom::SoundHandle::playing)
+        .def("stop",       &loom::SoundHandle::stop)
+        .def("set_volume", &loom::SoundHandle::set_volume, py::arg("volume"));
+
     // ── AudioEngine ───────────────────────────────────────────────────────────
     py::class_<loom::AudioEngine>(m, "AudioEngine")
         .def(py::init<>())

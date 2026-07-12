@@ -18,6 +18,31 @@ class Game(loom.Game):
 `play_sound(path, volume=1.0)` loads and plays a clip. Call it as often as you like;
 overlapping sounds mix together.
 
+### The sound handle
+
+`play_sound()` returns a `SoundHandle`. **Keeping it is optional** — the engine holds
+the sound alive until it finishes on its own, so ignoring the return value (as above)
+is the normal way to fire a one-shot.
+
+Hold onto it when you want to control the sound after it starts:
+
+```python
+self.engine_loop = self.audio.play_sound("sfx/engine.wav", volume=0.4)
+...
+self.engine_loop.set_volume(0.1)   # fade it down
+if self.engine_loop.playing:       # bool property
+    self.engine_loop.stop()
+```
+
+| Member | Description |
+|--------|-------------|
+| `playing` | `bool` — is this sound still playing? |
+| `stop()` | stop it early |
+| `set_volume(v)` | change its volume `[0,1]` |
+
+A handle for a clip that failed to load (missing file, unsupported format) is inert:
+`playing` is `False` and the other calls do nothing.
+
 ## Music
 
 Streaming background music with looping:

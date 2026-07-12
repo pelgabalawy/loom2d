@@ -41,7 +41,7 @@ and assets in native code that compiles for every target platform.
 - ⚙️ **Physics** — [Box2D v3](https://github.com/erincatto/box2d) with a pixel-space API + collision events
 - 🔊 **Audio** — SFX + streaming music via [miniaudio](https://github.com/mackron/miniaudio)
 - 🖼️ **Assets** — ref-counted texture cache (PNG/JPG via stb_image)
-- 🧪 **Tested** — 193 C++ (GoogleTest) + 167 Python (pytest) unit tests
+- 🧪 **Tested** — 196 C++ (GoogleTest) + 179 Python (pytest) unit tests
 - 📦 **Zero manual deps** — CMake fetches and builds everything for you
 
 ## Status
