@@ -93,6 +93,9 @@ class Palette:
     ]
     WHITE = (0xFC, 0xFC, 0xFC)
 
+    # A colour is looked up per cell per frame, so build each one once.
+    _cache = {}
+
     @staticmethod
     def rgb(rgb, alpha=1.0):
         r, g, b = rgb
@@ -100,9 +103,13 @@ class Palette:
 
     @classmethod
     def for_slot(cls, level, color_slot):
-        if color_slot == 2:
-            return cls.rgb(cls.WHITE)
-        return cls.rgb(cls.LEVELS[level % 10][color_slot])
+        key = (level % 10, color_slot)
+        color = cls._cache.get(key)
+        if color is None:
+            source = cls.WHITE if color_slot == 2 else cls.LEVELS[key[0]][color_slot]
+            color = cls.rgb(source)
+            cls._cache[key] = color
+        return color
 
     @classmethod
     def for_shape(cls, level, shape):
@@ -245,7 +252,11 @@ class BlockPool:
 
     def place(self, i, x, y, color):
         s = self.sprites[i]
-        s.position = loom.Vec2(x, y)
+        # s.x / s.y rather than s.position = Vec2(...): this runs for every
+        # visible cell every frame, and a Vec2 per sprite per frame is the one
+        # allocation pattern loom2d's own batcher benchmarks warn about.
+        s.x = x
+        s.y = y
         s.tint = color
         s.visible = True
 

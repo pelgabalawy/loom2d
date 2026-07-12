@@ -243,9 +243,9 @@ class Board:
             del self._grid[y]
             self._grid.insert(0, [0] * self.cols)
 
-    def fill_all(self):
-        """Test helper: fill every cell (forces a top-out on the next spawn)."""
-        self._grid = [[1] * self.cols for _ in range(self.rows)]
+    def fill(self, y, x, value):
+        """Occupy one cell. Used to set up a position (and by the tests)."""
+        self._grid[y][x] = value
 
 
 class LineClear:
