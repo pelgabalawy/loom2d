@@ -109,6 +109,7 @@ parent), plus `visible`, `enabled`, `add_child`, and read-only `hovered`,
 | Type | Summary |
 |------|---------|
 | `AudioEngine` | `play_sound`, `play_music`, `stop_music`, `set_music_volume`, `music_playing`, `set_master_volume`, `initialized` |
+| `SoundHandle` | returned by `play_sound` (optional to keep): `playing`, `stop`, `set_volume` |
 
 ## Assets — [guide](../guides/assets.md)
 

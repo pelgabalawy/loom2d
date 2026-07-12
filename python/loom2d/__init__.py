@@ -62,6 +62,7 @@ from loom2d_native import (
     RaycastHit,
     # Audio
     AudioEngine,
+    SoundHandle,
     # Assets
     AssetManager,
     Texture,
@@ -80,7 +81,7 @@ __all__ = [
     "Input", "Key", "MouseButton", "GamepadButton", "GamepadAxis", "TouchPoint",
     "PhysicsWorld", "PhysicsBody", "BodyType",
     "ContactPair", "SensorPair", "RaycastHit",
-    "AudioEngine",
+    "AudioEngine", "SoundHandle",
     "AssetManager", "Texture",
     "Game", "run",
 ]
