@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/pelgabalawy/loom2d/compare/v0.3.0...v0.4.0) (2026-07-12)
+
+
+### Features
+
+* UI toolkit — screen-space widgets (Panel/Label/Button/Image/Grid) ([#9](https://github.com/pelgabalawy/loom2d/issues/9)) ([2af1590](https://github.com/pelgabalawy/loom2d/commit/2af15906c0de5e3d595cabece5f6475fa9466f19))
+
 ## [0.3.0](https://github.com/pelgabalawy/loom2d/compare/v0.2.0...v0.3.0) (2026-06-29)
 
 
