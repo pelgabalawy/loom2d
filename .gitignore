@@ -36,6 +36,8 @@ examples/stress_test/assets/
 examples/tilemap/assets/
 examples/coin_quest/assets/
 examples/platformer/assets/
+examples/tetris_nes/assets/
+examples/tetris_nes/hiscore.txt
 
 # ── Editor / OS cruft ─────────────────────────────────────────────────────────
 .vscode/
