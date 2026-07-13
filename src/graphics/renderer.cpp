@@ -1,7 +1,9 @@
 #include "graphics/renderer.hpp"
+#include "graphics/canvas.hpp"
+#include "graphics/gfx_log.hpp"
 #include "graphics/texture.hpp"
 #include "sokol_gfx.h"
-#include "sokol_log.h"
+#include <stdexcept>
 
 namespace loom {
 
@@ -10,7 +12,7 @@ Renderer::Renderer(Window& window) : m_window(window) {
     desc.environment.defaults.color_format = SG_PIXELFORMAT_RGBA8;
     desc.environment.defaults.depth_format = SG_PIXELFORMAT_DEPTH_STENCIL;
     desc.environment.defaults.sample_count = 1;
-    desc.logger.func = slog_func;
+    desc.logger.func = gfx_log_func; // captures GLSL errors for Shader to report
     sg_setup(&desc);
 
     m_batcher.init();
@@ -20,18 +22,49 @@ Renderer::~Renderer() {
     sg_shutdown();
 }
 
-void Renderer::begin_frame(const Color& clear) {
+void Renderer::begin_frame() {
+    m_batcher.begin_frame();
+}
+
+void Renderer::begin_pass(Canvas* target, const Color& clear) {
+    if (m_in_pass) {
+        throw std::runtime_error(
+            "Renderer: a render pass is already open — passes cannot nest. "
+            "Render canvases before drawing the frame (e.g. in on_update), "
+            "not from inside on_draw.");
+    }
+
     sg_pass pass = {};
     pass.action.colors[0].load_action = SG_LOADACTION_CLEAR;
     pass.action.colors[0].clear_value = { clear.r, clear.g, clear.b, clear.a };
-    pass.swapchain.width        = m_window.drawable_width();
-    pass.swapchain.height       = m_window.drawable_height();
-    pass.swapchain.sample_count = 1;
-    pass.swapchain.color_format = SG_PIXELFORMAT_RGBA8;
-    pass.swapchain.depth_format = SG_PIXELFORMAT_DEPTH_STENCIL;
-    pass.swapchain.gl.framebuffer = 0; // default framebuffer
+
+    if (target) {
+        pass.attachments.colors[0] = target->attachment();
+    } else {
+        pass.swapchain.width        = m_window.drawable_width();
+        pass.swapchain.height       = m_window.drawable_height();
+        pass.swapchain.sample_count = 1;
+        pass.swapchain.color_format = SG_PIXELFORMAT_RGBA8;
+        pass.swapchain.depth_format = SG_PIXELFORMAT_DEPTH_STENCIL;
+        pass.swapchain.gl.framebuffer = 0; // default framebuffer
+    }
+
     sg_begin_pass(&pass);
-    m_batcher.reset_draw_calls(); // counter accumulates across this frame's flushes
+    m_batcher.begin_pass(/*offscreen=*/target != nullptr);
+    m_in_pass = true;
+}
+
+void Renderer::end_pass() {
+    if (!m_in_pass) return;
+    m_batcher.flush(); // everything queued belongs to the pass that's ending
+    sg_end_pass();
+    m_in_pass = false;
+}
+
+void Renderer::end_frame() {
+    end_pass(); // tolerate a caller that didn't close its last pass
+    sg_commit();
+    m_window.present();
 }
 
 void Renderer::set_viewport(int x, int y, int w, int h) {
@@ -70,13 +103,6 @@ void Renderer::draw_texture(const Texture& texture, const Rect& dst,
     q.uv[2][0] = u1; q.uv[2][1] = v1;
     q.uv[3][0] = u0; q.uv[3][1] = v1;
     m_batcher.submit(texture, q, tint);
-}
-
-void Renderer::end_frame() {
-    m_batcher.flush();
-    sg_end_pass();
-    sg_commit();
-    m_window.present();
 }
 
 int Renderer::width()  const { return m_window.width();  }

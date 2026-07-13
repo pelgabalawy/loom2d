@@ -15,6 +15,11 @@ public:
     static std::shared_ptr<Texture> from_memory(const unsigned char* rgba,
                                                  int width, int height);
 
+    // An empty RGBA8 texture a render pass can draw into. Owned by a Canvas,
+    // which adds the attachment view; from every other angle it is an ordinary
+    // texture, so a canvas can be handed to a sprite or a UI image.
+    static std::shared_ptr<Texture> render_target(int width, int height);
+
     ~Texture();
 
     // Non-copyable, movable

@@ -56,6 +56,7 @@ void TextNode::draw(Renderer& renderer, const Camera& camera) {
 
     const Texture& atlas = *m_font->atlas();
 
+    apply_draw_state(renderer);
     for (const GlyphQuad& g : m_quads) {
         float xs[4] = { g.x0, g.x1, g.x1, g.x0 }; // TL, TR, BR, BL
         float ys[4] = { g.y0, g.y0, g.y1, g.y1 };

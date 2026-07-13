@@ -1,6 +1,7 @@
 #pragma once
 #include "math/vec2.hpp"
 #include "math/rect.hpp"
+#include "graphics/blend_mode.hpp"
 #include <memory>
 #include <string>
 #include <vector>
@@ -8,6 +9,7 @@
 namespace loom {
 
 class Renderer;
+class Shader;
 
 // ── Anchored layout (pure, unit-tested) ─────────────────────────────────────
 // A widget is positioned relative to its parent's rect:
@@ -44,6 +46,10 @@ public:
     bool hovered = false;
     bool pressed = false;
     bool focused = false;
+
+    // How this widget draws. Applies to its own pixels, not its children's.
+    std::shared_ptr<Shader> shader;                   // null = the built-in one
+    BlendMode               blend = BlendMode::Alpha;
 
     Widget() = default;
     explicit Widget(std::string name);
@@ -91,6 +97,10 @@ public:
     virtual void on_click() {}
 
 protected:
+    // Every widget calls this before submitting geometry, so draw state can never
+    // leak from whichever widget happened to draw before it.
+    void apply_draw_state(Renderer& renderer) const;
+
     void draw_children(Renderer& renderer);
 
     // Override to place children differently (e.g. Grid). Default: each child is

@@ -48,6 +48,7 @@ void draw_text(Renderer& renderer, Font& font, const std::string& text,
 
 void Panel::draw(Renderer& renderer) {
     if (!visible) return;
+    apply_draw_state(renderer);
     if (background.a > 0.f) renderer.fill_rect(m_rect, background);
 
     float bw = border_width;
@@ -71,6 +72,7 @@ void Label::set_text(const std::string& text)    { m_text = text; }
 
 void Label::draw(Renderer& renderer) {
     if (!visible) return;
+    apply_draw_state(renderer);
     if (m_font) draw_text(renderer, *m_font, m_text, m_rect, color, align, vcenter);
     draw_children(renderer);
 }
@@ -89,6 +91,7 @@ Color Button::current_background() const {
 
 void Button::draw(Renderer& renderer) {
     if (!visible) return;
+    apply_draw_state(renderer);
     renderer.fill_rect(m_rect, current_background());
     if (m_font)
         draw_text(renderer, *m_font, caption, m_rect, text_color,
@@ -100,6 +103,7 @@ void Button::draw(Renderer& renderer) {
 
 void Image::draw(Renderer& renderer) {
     if (!visible) return;
+    apply_draw_state(renderer);
     if (m_texture) renderer.draw_texture(*m_texture, m_rect, tint, source);
     draw_children(renderer);
 }

@@ -83,6 +83,10 @@ set(ENGINE_SOURCES
     src/graphics/texture.cpp
     src/graphics/camera.cpp
     src/graphics/sprite_batcher.cpp
+    src/graphics/blend_mode.cpp
+    src/graphics/shader.cpp
+    src/graphics/canvas.cpp
+    src/graphics/gfx_log.cpp
     src/graphics/sokol_impl.cpp
     src/core/game.cpp
     src/core/timers.cpp

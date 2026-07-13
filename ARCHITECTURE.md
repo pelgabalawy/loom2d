@@ -112,9 +112,13 @@ loom2d/
 │   │   ├── window.hpp / .cpp
 │   │   └── filesystem.hpp / .cpp
 │   ├── graphics/                   ← sokol_gfx + sprite pipeline
-│   │   ├── renderer.hpp / .cpp     ← sokol init, frame begin/end
+│   │   ├── renderer.hpp / .cpp     ← sokol init, frame + render passes
 │   │   ├── texture.hpp / .cpp      ← stb_image → GPU texture
-│   │   ├── sprite_batcher.hpp/.cpp ← instanced draw calls, 1 DC per atlas
+│   │   ├── sprite_batcher.hpp/.cpp ← batched draw calls, pipeline cache
+│   │   ├── shader.hpp / .cpp       ← GLSL effect() wrapper + uniforms
+│   │   ├── blend_mode.hpp / .cpp   ← Alpha/Add/Multiply/Screen/Replace
+│   │   ├── canvas.hpp / .cpp       ← render-to-texture target
+│   │   ├── gfx_log.hpp / .cpp      ← captures GLSL errors from sokol
 │   │   └── camera.hpp / .cpp
 │   ├── scene/
 │   │   ├── node.hpp / .cpp         ← base node, transform, parent-child

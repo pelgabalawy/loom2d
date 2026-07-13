@@ -8,6 +8,7 @@ include(GoogleTest)
 set(CPP_TEST_SOURCES
     cpp/test_math.cpp
     cpp/test_graphics.cpp
+    cpp/test_shader.cpp
     cpp/test_scene.cpp
     cpp/test_scene_manager.cpp
     cpp/test_timers.cpp

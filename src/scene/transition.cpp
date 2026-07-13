@@ -36,6 +36,10 @@ void Fade::draw(Renderer& renderer, int screen_w, int screen_h) {
     c.a *= alpha();
     if (c.a <= 0.f) return;
 
+    // The overlay is a plain alpha-blended quad — reset whatever the last
+    // drawable left set, since a transition draws after the whole scene.
+    renderer.set_shader(nullptr);
+    renderer.set_blend(BlendMode::Alpha);
     renderer.fill_rect(Rect(0.f, 0.f, static_cast<float>(screen_w),
                             static_cast<float>(screen_h)), c);
 }

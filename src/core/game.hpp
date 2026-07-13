@@ -1,6 +1,8 @@
 #pragma once
+#include "graphics/canvas.hpp"
 #include "graphics/color.hpp"
 #include "graphics/scaling.hpp"
+#include "graphics/shader.hpp"
 #include "core/timers.hpp"
 #include "core/tween.hpp"
 #include "scene/scene.hpp"
@@ -13,6 +15,8 @@
 #include <string>
 
 namespace loom {
+
+class Renderer;
 
 // The game: every subsystem, plus the hooks a game overrides.
 //
@@ -47,6 +51,27 @@ public:
     // Number of draw calls emitted in the previous frame (diagnostics).
     int  last_draw_calls = 0;
 
+    // ── Screen shader (Phase 2.11) ──────────────────────────────────────────
+    // A shader applied to the whole finished frame — CRT, colour grade, shake,
+    // vignette. The run loop renders everything into a canvas the size of the
+    // window, then draws that canvas through this shader. Null = draw straight
+    // to the window, with no extra pass.
+    std::shared_ptr<Shader> post_process;
+
+    // Draw a node and its children into a canvas, which can then be used as an
+    // ordinary texture (minimap, portal, security camera, a baked backdrop).
+    // With no camera, the canvas is drawn in its own pixel space: (0,0) is its
+    // top-left corner.
+    //
+    // Call this from on_update(). A canvas is its own render pass, and passes
+    // cannot nest — from inside on_draw() the frame's pass is already open, and
+    // this throws to say so.
+    void render_to_canvas(Canvas& canvas, Node& root);
+    void render_to_canvas(Canvas& canvas, Node& root, const Camera& camera);
+
+    // The live renderer. Only valid while the game is running.
+    Renderer& renderer();
+
     // ── Responsive scaling (Phase 2.7) ──────────────────────────────────────
     // Logical (design) resolution the game is authored against. 0 means "use the
     // initial window size"; run() resolves it to a concrete value on startup.
@@ -65,6 +90,10 @@ public:
     virtual void on_stop()               {}
     // Called whenever the drawable surface changes size (resize / DPI change).
     virtual void on_resize(int w, int h) { (void)w; (void)h; }
+
+private:
+    friend void run_game(Game&, const std::string&, int, int);
+    Renderer* m_renderer = nullptr; // set by run_game for the duration of the run
 };
 
 // Open a window and run the game loop until the game stops.

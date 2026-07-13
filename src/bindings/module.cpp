@@ -6,7 +6,10 @@
 
 #include "platform/window.hpp"
 #include "platform/paths.hpp"
+#include "graphics/blend_mode.hpp"
+#include "graphics/canvas.hpp"
 #include "graphics/renderer.hpp"
+#include "graphics/shader.hpp"
 #include "graphics/texture.hpp"
 #include "graphics/camera.hpp"
 #include "graphics/scaling.hpp"
@@ -239,12 +242,91 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_property_readonly("height", &loom::Texture::height)
         .def_property_readonly("path",   &loom::Texture::path);
 
+    // ── BlendMode ─────────────────────────────────────────────────────────────
+    py::enum_<loom::BlendMode>(m, "BlendMode",
+        "How a drawable's colour combines with what is already on screen.")
+        .value("Alpha",    loom::BlendMode::Alpha,    "Normal transparency (the default).")
+        .value("Add",      loom::BlendMode::Add,      "Additive — glows, fire, lasers.")
+        .value("Multiply", loom::BlendMode::Multiply, "Darkens — shadows, colour washes.")
+        .value("Screen",   loom::BlendMode::Screen,   "Lightens without blowing out to white.")
+        .value("Replace",  loom::BlendMode::Replace,  "No blending — overwrites the target.")
+        .export_values();
+
+    // ── Shader ────────────────────────────────────────────────────────────────
+    py::class_<loom::Shader, std::shared_ptr<loom::Shader>>(m, "Shader",
+        "A custom fragment shader. Write an effect() function in GLSL:\n\n"
+        "    shader = loom.Shader('''\n"
+        "        uniform float u_time;\n"
+        "        vec4 effect(vec4 color, sampler2D tex, vec2 uv) {\n"
+        "            vec4 c = texture(tex, uv);\n"
+        "            c.rgb *= 0.5 + 0.5 * sin(u_time);\n"
+        "            return c * color;\n"
+        "        }\n"
+        "    ''')\n\n"
+        "`color` is the drawable's tint and `uv` its texture coordinate. Assign the\n"
+        "shader to any sprite, text node, tilemap or widget (`sprite.shader = ...`),\n"
+        "or to `game.post_process` to run it over the whole frame. Uniforms the\n"
+        "source declares are set with set(). Needs a live window, so build shaders\n"
+        "in on_start(), not at import time.")
+        .def(py::init([](const std::string& source) {
+                 return loom::Shader::from_source(source);
+             }), py::arg("source"))
+        .def("set", [](loom::Shader& shader, const std::string& name, py::object value) {
+                // Accept a number, a Vec2, a Color, or any sequence of floats, so
+                // the natural Python value for each uniform type just works.
+                std::vector<float> floats;
+                if (py::isinstance<loom::Vec2>(value)) {
+                    const auto v = value.cast<loom::Vec2>();
+                    floats = {v.x, v.y};
+                } else if (py::isinstance<loom::Color>(value)) {
+                    const auto c = value.cast<loom::Color>();
+                    floats = {c.r, c.g, c.b, c.a};
+                } else if (py::isinstance<py::sequence>(value) &&
+                           !py::isinstance<py::str>(value)) {
+                    for (py::handle item : value) floats.push_back(item.cast<float>());
+                } else {
+                    floats = {value.cast<float>()}; // raises TypeError if not a number
+                }
+                shader.set(name, floats.data(), static_cast<int>(floats.size()));
+             }, py::arg("name"), py::arg("value"),
+             "Set a uniform declared by the shader source. Takes a float, a Vec2, a\n"
+             "Color, or a sequence of floats (16 for a mat4).")
+        .def("has", &loom::Shader::has, py::arg("name"),
+             "True if the source declares a uniform of this name.")
+        .def_property_readonly("uniforms", [](const loom::Shader& shader) {
+                std::vector<std::string> names;
+                for (const loom::UniformDecl& d : shader.uniforms()) names.push_back(d.name);
+                return names;
+             }, "Names of the uniforms the source declares, in source order.");
+
+    // ── Canvas ────────────────────────────────────────────────────────────────
+    py::class_<loom::Canvas, std::shared_ptr<loom::Canvas>>(m, "Canvas",
+        "An off-screen render target. Draw a node tree into it with\n"
+        "game.render_to_canvas(canvas, node), then use canvas.texture like any\n"
+        "other texture — a minimap, a portal, a security camera. Needs a live\n"
+        "window, so create canvases in on_start().")
+        .def(py::init([](int width, int height) {
+                 return loom::Canvas::create(width, height);
+             }), py::arg("width"), py::arg("height"))
+        .def_readwrite("clear_color", &loom::Canvas::clear_color,
+                       "Cleared to this before each render into it (transparent by default).")
+        .def_property_readonly("width",  &loom::Canvas::width)
+        .def_property_readonly("height", &loom::Canvas::height)
+        .def_property_readonly("texture", &loom::Canvas::texture,
+                               "The canvas contents, drawable anywhere a texture is.")
+        .def("resize", &loom::Canvas::resize, py::arg("width"), py::arg("height"));
+
     // ── Node ──────────────────────────────────────────────────────────────────
     py::classh<loom::Node, PyNode>(m, "Node")
         .def(py::init<>())
         .def(py::init<std::string>())
         .def_readwrite("name",    &loom::Node::name)
         .def_readwrite("visible", &loom::Node::visible)
+        .def_readwrite("shader",  &loom::Node::shader,
+                       "A Shader to draw this node with (None = the built-in one). "
+                       "Applies to the node's own pixels, not its children's.")
+        .def_readwrite("blend",   &loom::Node::blend,
+                       "How this node's pixels blend with what is under them.")
         .def_property("position",
             &loom::Node::position,
             py::overload_cast<loom::Vec2>(&loom::Node::set_position))
@@ -394,6 +476,11 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_readwrite("pivot",     &loom::Widget::pivot)
         .def_readwrite("offset",    &loom::Widget::offset)
         .def_readwrite("size",      &loom::Widget::size)
+        .def_readwrite("shader",    &loom::Widget::shader,
+                       "A Shader to draw this widget with (None = the built-in one). "
+                       "Applies to the widget's own pixels, not its children's.")
+        .def_readwrite("blend",     &loom::Widget::blend,
+                       "How this widget's pixels blend with what is under them.")
         .def_property_readonly("hovered", [](loom::Widget& w){ return w.hovered; })
         .def_property_readonly("pressed", [](loom::Widget& w){ return w.pressed; })
         .def_property_readonly("focused", [](loom::Widget& w){ return w.focused; })
@@ -903,6 +990,20 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_property_readonly("screen_width",  [](Game& g) { return g.screen_width;  })
         .def_property_readonly("screen_height", [](Game& g) { return g.screen_height; })
         .def_property_readonly("last_draw_calls", [](Game& g) { return g.last_draw_calls; })
+        .def_readwrite("post_process", &Game::post_process,
+                       "A Shader run over the whole finished frame — CRT, colour grade, "
+                       "vignette. None (the default) draws straight to the window.")
+        .def("render_to_canvas",
+             py::overload_cast<loom::Canvas&, loom::Node&>(&Game::render_to_canvas),
+             py::arg("canvas"), py::arg("root"),
+             "Draw a node and its children into a canvas, in the canvas's own pixel "
+             "space ((0,0) = top-left). Call this from on_update(): a canvas is its "
+             "own render pass, and passes cannot nest inside on_draw().")
+        .def("render_to_canvas",
+             py::overload_cast<loom::Canvas&, loom::Node&, const loom::Camera&>(
+                 &Game::render_to_canvas),
+             py::arg("canvas"), py::arg("root"), py::arg("camera"),
+             "Draw a node and its children into a canvas, seen through a camera.")
         .def_property_readonly("ui",      [](Game& g) -> loom::UICanvas& { return g.ui; },
                                py::return_value_policy::reference_internal)
         .def_property_readonly("timers",  [](Game& g) -> loom::Timers& { return g.timers; },

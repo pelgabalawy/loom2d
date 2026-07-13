@@ -60,6 +60,7 @@ void SpriteNode::draw(Renderer& renderer, const Camera& camera) {
         world_position(), world_rotation(), world_scale(), origin,
         src, m_texture->width(), m_texture->height(), flip_x, flip_y);
 
+    apply_draw_state(renderer);
     renderer.batcher().submit(*m_texture, quad, tint);
 
     Node::draw(renderer, camera);
