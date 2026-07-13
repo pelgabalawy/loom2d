@@ -10,6 +10,9 @@ set(CPP_TEST_SOURCES
     cpp/test_graphics.cpp
     cpp/test_scene.cpp
     cpp/test_scene_manager.cpp
+    cpp/test_timers.cpp
+    cpp/test_tween.cpp
+    cpp/test_paths.cpp
     cpp/test_tilemap.cpp
     cpp/test_text.cpp
     cpp/test_ui.cpp

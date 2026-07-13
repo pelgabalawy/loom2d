@@ -107,6 +107,10 @@ void run_game(Game& game, const std::string& title, int width, int height) {
             }
         }
 
+        // Timers and tweens run before physics and scenes, so a callback that
+        // moves something this frame has it simulated and drawn the same frame.
+        if (game.auto_timers)  game.timers.update(dt);
+        if (game.auto_tweens)  game.tweens.update(dt);
         if (game.auto_physics) game.physics.step(dt);
         if (game.auto_scene)   game.scenes.update(dt);
 

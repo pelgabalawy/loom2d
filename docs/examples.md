@@ -20,6 +20,7 @@ python examples/<name>/main.py
 | **text_demo** | font loading, alignment, wrapping | spinning/scaling text |
 | **ui_demo** | [panels, buttons, labels, images & grids](guides/ui.md) | click buttons; UI stays fixed over a scrolling world |
 | **scenes** | [scene states, the stack & fade transitions](guides/scenes.md) | menu → level → pause; P pauses, the level freezes behind it |
+| **timers_tweens** | [timers, easing curves](guides/timers-tweens.md) & [saving](guides/saving.md) | eight easings racing; run it twice — the counter carries over |
 | **responsive** | [responsive scaling](guides/responsive-scaling.md) across window sizes | resize it; Q/W/E/R switch scale modes |
 | **input_demo** | [gamepad, touch, mouse-wheel & text input](guides/input.md) | stick/WASD move, wheel zoom, type a caption |
 | **tetris_nes** | a complete, faithful **NES Tetris** clone | fixed 60 Hz logic, procedural audio, MUSIC/SFX toggles |

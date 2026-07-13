@@ -1,6 +1,8 @@
 #pragma once
 #include "graphics/color.hpp"
 #include "graphics/scaling.hpp"
+#include "core/timers.hpp"
+#include "core/tween.hpp"
 #include "scene/scene.hpp"
 #include "scene/scene_manager.hpp"
 #include "ui/ui_canvas.hpp"
@@ -23,6 +25,8 @@ public:
     Color        clear_color = Color::cornflower();
     SceneManager scenes;
     UICanvas     ui;        // screen-space UI drawn over every scene
+    Timers       timers;    // run a callback later, or on a repeat
+    TweenManager tweens;    // move a value from A to B over time
     PhysicsWorld physics;
     AudioEngine  audio;
     AssetManager assets;
@@ -32,9 +36,11 @@ public:
     Scene&                 scene()     { return *scenes.current(); }
     std::shared_ptr<Scene> scene_ptr() { return scenes.current(); }
 
-    // Step physics & scenes automatically each frame; override for custom logic
+    // Step these automatically each frame; turn one off to drive it yourself.
     bool auto_physics = true;
     bool auto_scene   = true;
+    bool auto_timers  = true;
+    bool auto_tweens  = true;
 
     // Set to false from on_update() to exit the game loop programmatically.
     bool running = true;

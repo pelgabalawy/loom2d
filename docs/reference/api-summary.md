@@ -17,8 +17,9 @@ For full explanations and examples, follow the links to the guides.
 
 ### `Game` members
 
-`scene`, `physics`, `audio`, `assets`, `clear_color`, `running`, `auto_physics`,
-`auto_scene`, `last_draw_calls`. See [The Game Loop](../getting-started/game-loop.md).
+`scene`, `scenes`, `ui`, `timers`, `tweens`, `physics`, `audio`, `assets`,
+`clear_color`, `running`, `auto_physics`, `auto_scene`, `auto_timers`,
+`auto_tweens`, `last_draw_calls`. See [The Game Loop](../getting-started/game-loop.md).
 
 For resolution independence: `logical_width`, `logical_height`, `scale_mode`,
 `screen_width`, `screen_height`, and the `on_resize(w, h)` hook — see
@@ -57,6 +58,23 @@ For resolution independence: `logical_width`, `logical_height`, `scale_mode`,
 |------|---------|
 | `Animation(name, loop=True)` | a clip; `add_frame`, `add_strip`, `frame_count` |
 | `AnimationFrame` | one frame: `source` (`Rect`), `duration` |
+
+## Timers & tweens — [guide](../guides/timers-tweens.md)
+
+| Type | Summary |
+|------|---------|
+| `game.timers` | the `Timers`: `after(delay, fn)`, `every(interval, fn, times=0)`, `cancel(handle)`, `clear()`, `active(handle)`, `count` |
+| `game.tweens` | the `TweenManager`: `to(target, prop, to, duration, easing=Ease.Linear, delay=0, on_complete=None)`, `add(tween)`, `cancel(tween)`, `clear()`, `count` |
+| `Tween(from_, to, duration, easing=Ease.Linear)` | one value in motion: `on_update`, `on_complete`, `delay`, `cancel()`, `value`, `progress`, `done`, `cancelled` |
+| `Ease` | `Linear`, plus `In`/`Out`/`InOut` × `Quad`, `Cubic`, `Quart`, `Sine`, `Expo`, `Circ`, `Back`, `Elastic`, `Bounce` |
+| `ease(easing, t)` | the raw curve at a normalised time `0..1` |
+
+## Saving — [guide](../guides/saving.md)
+
+| Type | Summary |
+|------|---------|
+| `SaveFile(org, app, name="save.json", directory=None)` | JSON save file: `load(default=None)`, `save(data)`, `exists`, `delete()`, `path`, `directory`. Writes atomically; a missing or corrupt save reads as `default` |
+| `save_dir(org, app)` | the per-user directory the OS set aside for this game, created if needed |
 
 ## Text — [guide](../guides/text.md)
 

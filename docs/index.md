@@ -29,6 +29,8 @@ stays 100% Python while still running fast and shipping everywhere.
 - :world_map: **Tilemaps** — Tiled `.tmx`/`.tsx` loader with viewport culling and grid collision
 - :pencil: **Text** — TrueType fonts baked to a texture atlas (stb_truetype)
 - :jigsaw: **UI toolkit** — panels, labels, buttons, images and grids with anchored layout
+- :stopwatch: **Timers & tweens** — `after`/`every` scheduling and 28 easing curves
+- :floppy_disk: **Save/load** — atomic JSON saves in the right per-user directory on every OS
 - :speaker: **Audio** — SFX + streaming music via [miniaudio](https://github.com/mackron/miniaudio)
 
 ## A tiny game

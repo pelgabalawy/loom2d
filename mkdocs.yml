@@ -67,6 +67,7 @@ nav:
       - Camera: guides/camera.md
       - Responsive Scaling: guides/responsive-scaling.md
       - Animation: guides/animation.md
+      - Timers & Tweens: guides/timers-tweens.md
       - Input: guides/input.md
       - Tilemaps: guides/tilemaps.md
       - Physics: guides/physics.md
@@ -75,6 +76,7 @@ nav:
       - UI Toolkit: guides/ui.md
       - Audio: guides/audio.md
       - Assets: guides/assets.md
+      - Saving & Loading: guides/saving.md
   - Reference:
       - Math Types: reference/math.md
       - API Summary: reference/api-summary.md

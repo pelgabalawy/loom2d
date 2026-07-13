@@ -5,6 +5,7 @@
 #include <string>
 
 #include "platform/window.hpp"
+#include "platform/paths.hpp"
 #include "graphics/renderer.hpp"
 #include "graphics/texture.hpp"
 #include "graphics/camera.hpp"
@@ -12,6 +13,8 @@
 #include "math/vec2.hpp"
 #include "math/rect.hpp"
 #include "core/game.hpp"
+#include "core/timers.hpp"
+#include "core/tween.hpp"
 #include "scene/node.hpp"
 #include "scene/sprite_node.hpp"
 #include "scene/scene.hpp"
@@ -91,6 +94,22 @@ public:
     using loom::Widget::Widget;
     void on_click() override { PYBIND11_OVERRIDE(void, loom::Widget, on_click); }
 };
+
+// Walk a dotted attribute path ("x", or "tint.a") down to the object that holds
+// the final attribute, so a tween can read and write it. Everything but the last
+// component is followed with getattr; `leaf` comes back as that last component.
+static py::object attr_owner(const py::object& root, const std::string& path,
+                             std::string& leaf) {
+    py::object owner = root;
+    std::size_t start = 0;
+    for (std::size_t dot = path.find('.'); dot != std::string::npos;
+         dot = path.find('.', start)) {
+        owner = owner.attr(path.substr(start, dot - start).c_str());
+        start = dot + 1;
+    }
+    leaf = path.substr(start);
+    return owner;
+}
 
 // ── Module ────────────────────────────────────────────────────────────────────
 
@@ -519,6 +538,128 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_property_readonly("transitioning", &loom::SceneManager::transitioning)
         .def_property_readonly("stack",         &loom::SceneManager::stack);
 
+    // ── Timers ────────────────────────────────────────────────────────────────
+    py::class_<loom::Timers>(m, "Timers")
+        .def(py::init<>())
+        .def("after", &loom::Timers::after,
+             py::arg("delay"), py::arg("fn"),
+             "Call fn once, `delay` seconds from now. Returns a handle.")
+        .def("every", &loom::Timers::every,
+             py::arg("interval"), py::arg("fn"), py::arg("times") = 0,
+             "Call fn every `interval` seconds. times=0 repeats for ever; "
+             "otherwise the timer retires after that many calls.")
+        .def("cancel", &loom::Timers::cancel, py::arg("handle"),
+             "Stop a timer. False if the handle was unknown or already done.")
+        .def("clear",  &loom::Timers::clear, "Stop every timer.")
+        .def("active", &loom::Timers::active, py::arg("handle"))
+        .def("update", &loom::Timers::update, py::arg("dt"),
+             "Advance every timer. run() drives this; exposed for headless tests.")
+        .def_property_readonly("count", &loom::Timers::count);
+
+    // ── Ease ──────────────────────────────────────────────────────────────────
+    // Not export_values(): `Linear` and friends are far too generic to spill
+    // into the module namespace. Spell it loom.Ease.OutQuad.
+    py::enum_<loom::Ease>(m, "Ease")
+        .value("Linear",       loom::Ease::Linear)
+        .value("InQuad",       loom::Ease::InQuad)
+        .value("OutQuad",      loom::Ease::OutQuad)
+        .value("InOutQuad",    loom::Ease::InOutQuad)
+        .value("InCubic",      loom::Ease::InCubic)
+        .value("OutCubic",     loom::Ease::OutCubic)
+        .value("InOutCubic",   loom::Ease::InOutCubic)
+        .value("InQuart",      loom::Ease::InQuart)
+        .value("OutQuart",     loom::Ease::OutQuart)
+        .value("InOutQuart",   loom::Ease::InOutQuart)
+        .value("InSine",       loom::Ease::InSine)
+        .value("OutSine",      loom::Ease::OutSine)
+        .value("InOutSine",    loom::Ease::InOutSine)
+        .value("InExpo",       loom::Ease::InExpo)
+        .value("OutExpo",      loom::Ease::OutExpo)
+        .value("InOutExpo",    loom::Ease::InOutExpo)
+        .value("InCirc",       loom::Ease::InCirc)
+        .value("OutCirc",      loom::Ease::OutCirc)
+        .value("InOutCirc",    loom::Ease::InOutCirc)
+        .value("InBack",       loom::Ease::InBack)
+        .value("OutBack",      loom::Ease::OutBack)
+        .value("InOutBack",    loom::Ease::InOutBack)
+        .value("InElastic",    loom::Ease::InElastic)
+        .value("OutElastic",   loom::Ease::OutElastic)
+        .value("InOutElastic", loom::Ease::InOutElastic)
+        .value("InBounce",     loom::Ease::InBounce)
+        .value("OutBounce",    loom::Ease::OutBounce)
+        .value("InOutBounce",  loom::Ease::InOutBounce);
+
+    m.def("ease", &loom::ease, py::arg("easing"), py::arg("t"),
+          "Shape a normalised time (0..1) with an easing curve.");
+
+    // ── Tween ─────────────────────────────────────────────────────────────────
+    py::class_<loom::Tween, std::shared_ptr<loom::Tween>>(m, "Tween")
+        .def(py::init<float, float, float, loom::Ease>(),
+             py::arg("from_"), py::arg("to"), py::arg("duration"),
+             py::arg("easing") = loom::Ease::Linear)
+        .def_readwrite("from_",    &loom::Tween::from)
+        .def_readwrite("to",       &loom::Tween::to)
+        .def_readwrite("duration", &loom::Tween::duration)
+        .def_readwrite("easing",   &loom::Tween::easing)
+        .def_readwrite("delay",    &loom::Tween::delay)
+        .def_readwrite("on_update",   &loom::Tween::on_update)
+        .def_readwrite("on_complete", &loom::Tween::on_complete)
+        .def("update", &loom::Tween::update, py::arg("dt"))
+        .def("cancel", &loom::Tween::cancel,
+             "Stop early. on_complete does NOT fire — it never arrived.")
+        .def_property_readonly("done",      &loom::Tween::done)
+        .def_property_readonly("cancelled", &loom::Tween::cancelled)
+        .def_property_readonly("value",     &loom::Tween::value)
+        .def_property_readonly("progress",  &loom::Tween::progress)
+        .def_property_readonly("elapsed",   &loom::Tween::elapsed);
+
+    // ── TweenManager ──────────────────────────────────────────────────────────
+    py::class_<loom::TweenManager>(m, "TweenManager")
+        .def(py::init<>())
+        // The sugar: name an attribute and a destination, and it animates.
+        // The tween holds a reference to the target, so a sprite being tweened
+        // stays alive at least as long as the animation.
+        .def("to",
+             [](loom::TweenManager& tm, py::object target, const std::string& prop,
+                float to, float duration, loom::Ease easing, float delay,
+                std::function<void()> on_complete) {
+                 std::string leaf;
+                 py::object  owner = attr_owner(target, prop, leaf);
+                 const float from  = py::getattr(owner, leaf.c_str()).cast<float>();
+
+                 auto tween = std::make_shared<loom::Tween>(from, to, duration, easing);
+                 tween->delay       = delay;
+                 tween->on_complete = std::move(on_complete);
+                 // Re-resolve the path each frame rather than caching the owner:
+                 // an attribute reached through a by-value copy (a Color, say)
+                 // must be read back and written whole to actually take effect.
+                 tween->on_update = [target, prop](float v) {
+                     std::string leaf;
+                     py::object  owner = attr_owner(target, prop, leaf);
+                     py::setattr(owner, leaf.c_str(), py::float_(v));
+                 };
+                 return tm.add(std::move(tween));
+             },
+             py::arg("target"), py::arg("prop"), py::arg("to"), py::arg("duration"),
+             py::arg("easing")      = loom::Ease::Linear,
+             py::arg("delay")       = 0.f,
+             py::arg("on_complete") = nullptr,
+             "Animate a float attribute of `target` to `to` over `duration` "
+             "seconds. `prop` may be dotted ('x', 'tint.a'). Starts from whatever "
+             "the attribute reads right now. Returns the Tween.")
+        .def("add",    &loom::TweenManager::add, py::arg("tween"),
+             "Run a Tween you built yourself.")
+        .def("cancel", &loom::TweenManager::cancel, py::arg("tween"))
+        .def("clear",  &loom::TweenManager::clear, "Cancel everything in flight.")
+        .def("update", &loom::TweenManager::update, py::arg("dt"),
+             "Advance every tween. run() drives this; exposed for headless tests.")
+        .def_property_readonly("count", &loom::TweenManager::count);
+
+    // ── save_dir() ────────────────────────────────────────────────────────────
+    m.def("save_dir", &loom::save_dir, py::arg("org"), py::arg("app"),
+          "The per-user directory this game may write save files to, created if "
+          "needed. The OS decides where that is; loom2d.SaveFile builds on it.");
+
     // ── Key enum ──────────────────────────────────────────────────────────────
     py::enum_<loom::Key>(m, "Key")
         .value("A", loom::Key::A) .value("B", loom::Key::B)
@@ -753,6 +894,8 @@ PYBIND11_MODULE(loom2d_native, m) {
                                py::return_value_policy::reference_internal)
         .def_readwrite("auto_physics", &Game::auto_physics)
         .def_readwrite("auto_scene",   &Game::auto_scene)
+        .def_readwrite("auto_timers",  &Game::auto_timers)
+        .def_readwrite("auto_tweens",  &Game::auto_tweens)
         .def_readwrite("running",      &Game::running)
         .def_readwrite("logical_width",  &Game::logical_width)
         .def_readwrite("logical_height", &Game::logical_height)
@@ -761,6 +904,10 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_property_readonly("screen_height", [](Game& g) { return g.screen_height; })
         .def_property_readonly("last_draw_calls", [](Game& g) { return g.last_draw_calls; })
         .def_property_readonly("ui",      [](Game& g) -> loom::UICanvas& { return g.ui; },
+                               py::return_value_policy::reference_internal)
+        .def_property_readonly("timers",  [](Game& g) -> loom::Timers& { return g.timers; },
+                               py::return_value_policy::reference_internal)
+        .def_property_readonly("tweens",  [](Game& g) -> loom::TweenManager& { return g.tweens; },
                                py::return_value_policy::reference_internal)
         .def_property_readonly("physics", [](Game& g) -> loom::PhysicsWorld& { return g.physics; },
                                py::return_value_policy::reference_internal)
