@@ -214,6 +214,42 @@ class TestButtonState:
         assert not Label().focusable
 
 
+class TestSubclassLifetime:
+    """A Python Widget subclass owned only by the canvas must keep working.
+
+    Same trap as Node (see tests/python/test_scene.py): `canvas.add(MyWidget())`
+    keeps no Python reference, and if the Python half is dropped the on_click
+    override silently stops firing.
+
+    Note this subclasses Widget, not Button: only Widget has a trampoline, so
+    Widget is the one UI class Python can currently override on_click on.
+    """
+
+    def test_on_click_override_fires_when_python_keeps_no_reference(self):
+        import gc
+
+        clicks = []
+
+        class Clickable(Widget):
+            def on_click(self):
+                clicks.append(True)
+
+        c = _canvas()
+        w = Clickable()
+        w.anchor = Vec2(0.5, 0.5)
+        w.pivot = Vec2(0.5, 0.5)
+        w.size = Vec2(100, 40)
+        c.add(w)
+        c.layout()
+        del w                                     # only the canvas owns it now
+        gc.collect()
+
+        c.update_input(Vec2(400, 300), True, True, False)   # press
+        c.update_input(Vec2(400, 300), False, False, True)  # release
+
+        assert clicks == [True]
+
+
 class TestBindingsSurface:
     def test_image_holds_optional_source(self):
         img = Image()

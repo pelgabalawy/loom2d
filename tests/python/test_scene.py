@@ -1,6 +1,9 @@
 """
 Test the Scene, Node, Animation API from Python.
 """
+import gc
+import weakref
+
 import pytest
 loom2d_native = pytest.importorskip("loom2d_native")
 from loom2d_native import Node, Scene, Animation, Rect, Vec2
@@ -85,6 +88,76 @@ class TestScene:
         s = Scene()
         s.add(Node())
         s.update(0.016)
+
+
+class TestSubclassLifetime:
+    """A Python Node subclass owned only by C++ must keep working.
+
+    `scene.add(Enemy())` retains no Python reference, so the Python half of the
+    object has to survive on the strength of the C++ shared_ptr alone. When it
+    doesn't, PYBIND11_OVERRIDE silently falls back to the C++ base and the node
+    quietly stops updating — no exception, no crash, just a dead entity. Every
+    test below adds the node inline, the way game code naturally would.
+    """
+
+    def test_override_fires_when_python_keeps_no_reference(self):
+        ticks = []
+
+        class Ticker(Node):
+            def update(self, dt):
+                ticks.append(dt)
+
+        s = Scene()
+        s.add(Ticker())          # no Python reference retained
+        gc.collect()             # force the issue
+
+        s.update(0.016)
+        s.update(0.016)
+
+        assert ticks == [pytest.approx(0.016), pytest.approx(0.016)]
+
+    def test_python_state_survives_c_plus_plus_ownership(self):
+        class Counter(Node):
+            def __init__(self):
+                super().__init__("counter")
+                self.count = 0
+
+            def update(self, dt):
+                self.count += 1
+
+        s = Scene()
+        s.add(Counter())
+        gc.collect()
+
+        for _ in range(3):
+            s.update(0.016)
+
+        # Reaching back through C++ must yield the same Python object, with its
+        # subclass type and its attributes intact.
+        node = s.root().children()[0]
+        assert isinstance(node, Counter)
+        assert node.count == 3
+
+    def test_removed_node_is_freed(self):
+        """Keeping the subclass alive must not mean leaking it forever.
+
+        A scene that spawns and despawns entities would grow without bound if
+        the fix were 'hold a reference until the scene dies'.
+        """
+        class Bullet(Node):
+            pass
+
+        s = Scene()
+        bullet = Bullet()
+        ref = weakref.ref(bullet)
+        s.add(bullet)
+        del bullet
+        gc.collect()
+        assert ref() is not None, "scene should still own the node"
+
+        s.clear()
+        gc.collect()
+        assert ref() is None, "clearing the scene should free the node"
 
 
 class TestAnimation:
