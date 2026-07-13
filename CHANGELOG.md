@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/pelgabalawy/loom2d/compare/v0.7.0...v0.8.0) (2026-07-13)
+
+
+### Features
+
+* LÖVE-style rendering — shaders, blend modes and canvases ([#21](https://github.com/pelgabalawy/loom2d/issues/21)) ([de2ca59](https://github.com/pelgabalawy/loom2d/commit/de2ca59ebd5b97eab5ec437a0ca72350fc35db6a))
+
 ## [0.7.0](https://github.com/pelgabalawy/loom2d/compare/v0.6.0...v0.7.0) (2026-07-13)
 
 
