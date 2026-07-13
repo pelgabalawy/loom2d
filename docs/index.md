@@ -22,11 +22,13 @@ stays 100% Python while still running fast and shipping everywhere.
 
 - :video_game: **Pure-Python game code** — subclass `loom.Game`, implement `on_update` / `on_draw`
 - :bricks: **Scene graph** — nodes with parent/child transforms, sprites, animations
+- :clapper: **Scenes** — menu/level/pause as swappable states, with a stack and fade transitions
 - :framed_picture: **GPU sprite batching** — thousands of sprites in a handful of draw calls (sokol_gfx)
-- :joystick: **Input** — keyboard & mouse (touch/gamepad on the roadmap)
+- :joystick: **Input** — keyboard, mouse, gamepad (hot-plug + rumble) and touch
 - :gear: **Physics** — [Box2D v3](https://github.com/erincatto/box2d) with a pixel-space API and collision events
 - :world_map: **Tilemaps** — Tiled `.tmx`/`.tsx` loader with viewport culling and grid collision
 - :pencil: **Text** — TrueType fonts baked to a texture atlas (stb_truetype)
+- :jigsaw: **UI toolkit** — panels, labels, buttons, images and grids with anchored layout
 - :speaker: **Audio** — SFX + streaming music via [miniaudio](https://github.com/mackron/miniaudio)
 
 ## A tiny game

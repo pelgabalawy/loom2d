@@ -62,6 +62,7 @@ nav:
       - The Game Loop: getting-started/game-loop.md
   - Guides:
       - Scene Graph: guides/scene-graph.md
+      - Scenes & Transitions: guides/scenes.md
       - Sprites & Textures: guides/sprites.md
       - Camera: guides/camera.md
       - Responsive Scaling: guides/responsive-scaling.md

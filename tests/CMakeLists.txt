@@ -9,6 +9,7 @@ set(CPP_TEST_SOURCES
     cpp/test_math.cpp
     cpp/test_graphics.cpp
     cpp/test_scene.cpp
+    cpp/test_scene_manager.cpp
     cpp/test_tilemap.cpp
     cpp/test_text.cpp
     cpp/test_ui.cpp

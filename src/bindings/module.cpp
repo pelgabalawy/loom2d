@@ -11,9 +11,12 @@
 #include "graphics/scaling.hpp"
 #include "math/vec2.hpp"
 #include "math/rect.hpp"
+#include "core/game.hpp"
 #include "scene/node.hpp"
 #include "scene/sprite_node.hpp"
 #include "scene/scene.hpp"
+#include "scene/scene_manager.hpp"
+#include "scene/transition.hpp"
 #include "scene/animation.hpp"
 #include "scene/tilemap.hpp"
 #include "text/font.hpp"
@@ -28,56 +31,41 @@
 
 namespace py = pybind11;
 
-// ── Game base class (with all subsystems) ────────────────────────────────────
+// Trampoline for Python Game subclasses.
+using loom::Game;
 
-class Game {
+class PyGame : public loom::Game {
 public:
-    virtual ~Game() = default;
-
-    loom::Color        clear_color = loom::Color::cornflower();
-    loom::Scene        scene;
-    loom::UICanvas     ui;        // screen-space UI layer (drawn after the scene)
-    loom::PhysicsWorld physics;
-    loom::AudioEngine  audio;
-    loom::AssetManager assets;
-
-    // Step physics & scene automatically each frame; override for custom logic
-    bool auto_physics = true;
-    bool auto_scene   = true;
-
-    // Set to false from on_update() to exit the game loop programmatically.
-    bool running = true;
-    // Number of draw calls emitted in the previous frame (diagnostics).
-    int  last_draw_calls = 0;
-
-    // ── Responsive scaling (Phase 2.7) ──────────────────────────────────────
-    // Logical (design) resolution the game is authored against. 0 means "use the
-    // initial window size"; run() resolves it to a concrete value on startup.
-    int       logical_width  = 0;
-    int       logical_height = 0;
-    // How that logical resolution maps onto the real (possibly resized / HiDPI)
-    // drawable surface. Fit (letterbox, preserve aspect) by default.
-    loom::ScaleMode scale_mode = loom::ScaleMode::Fit;
-    // Current drawable size in device pixels, updated by run() every frame.
-    int       screen_width  = 0;
-    int       screen_height = 0;
-
-    virtual void on_start()              {}
-    virtual void on_update(float dt)     { (void)dt; }
-    virtual void on_draw()               {}
-    virtual void on_stop()               {}
-    // Called whenever the drawable surface changes size (resize / DPI change).
-    virtual void on_resize(int w, int h) { (void)w; (void)h; }
-};
-
-class PyGame : public Game {
-public:
-    using Game::Game;
+    using loom::Game::Game;
     void on_start()              override { PYBIND11_OVERRIDE(void, Game, on_start);     }
     void on_update(float dt)     override { PYBIND11_OVERRIDE(void, Game, on_update, dt);}
     void on_draw()               override { PYBIND11_OVERRIDE(void, Game, on_draw);      }
     void on_stop()               override { PYBIND11_OVERRIDE(void, Game, on_stop);      }
     void on_resize(int w, int h) override { PYBIND11_OVERRIDE(void, Game, on_resize, w, h); }
+};
+
+// Trampoline for Python Scene subclasses. The manager owns scenes in C++ and a
+// game hands them over without keeping a reference (`switch_to(MenuScene())`),
+// so Scene needs the same smart_holder lifetime support as Node.
+class PyScene : public loom::Scene, public py::trampoline_self_life_support {
+public:
+    using loom::Scene::Scene;
+    void on_enter()          override { PYBIND11_OVERRIDE(void, loom::Scene, on_enter);      }
+    void on_exit()           override { PYBIND11_OVERRIDE(void, loom::Scene, on_exit);       }
+    void on_update(float dt) override { PYBIND11_OVERRIDE(void, loom::Scene, on_update, dt); }
+    void on_draw()           override { PYBIND11_OVERRIDE(void, loom::Scene, on_draw);       }
+};
+
+// Trampoline so Python can subclass Transition and write its own.
+class PyTransition : public loom::Transition, public py::trampoline_self_life_support {
+public:
+    using loom::Transition::Transition;
+    void update(float dt)    override { PYBIND11_OVERRIDE_PURE(void, loom::Transition, update, dt); }
+    bool swap_ready() const  override { PYBIND11_OVERRIDE_PURE(bool, loom::Transition, swap_ready); }
+    bool done()       const  override { PYBIND11_OVERRIDE_PURE(bool, loom::Transition, done);       }
+    void draw(loom::Renderer& r, int w, int h) override {
+        PYBIND11_OVERRIDE_PURE(void, loom::Transition, draw, r, w, h);
+    }
 };
 
 // Trampoline for Python Node subclasses.
@@ -103,102 +91,6 @@ public:
     using loom::Widget::Widget;
     void on_click() override { PYBIND11_OVERRIDE(void, loom::Widget, on_click); }
 };
-
-// ── run() ─────────────────────────────────────────────────────────────────────
-
-void run_game(Game& game, const std::string& title, int width, int height) {
-    loom::Window   window(title, width, height);
-    loom::Renderer renderer(window); // sets up sokol_gfx
-
-    // Resolve the logical/design resolution: default to the initial window size.
-    int logical_w = game.logical_width  > 0 ? game.logical_width  : width;
-    int logical_h = game.logical_height > 0 ? game.logical_height : height;
-    game.logical_width  = logical_w;
-    game.logical_height = logical_h;
-
-    game.scene.camera.set_viewport(logical_w, logical_h);
-    // Default: world (0,0) = screen top-left, matching pixel/screen coordinates
-    game.scene.camera.set_position(loom::Vec2(logical_w * 0.5f, logical_h * 0.5f));
-
-    // The UI layer is laid out against the logical resolution in screen space,
-    // independent of where the world camera roams.
-    game.ui.set_screen(logical_w, logical_h);
-
-    // Let Input activate text input against this window when asked.
-    loom::Input::set_window(window.sdl_window());
-
-    game.on_start();
-
-    Uint64 last_ticks = SDL_GetTicks();
-    int    last_dw = -1, last_dh = -1;
-
-    while (game.running) {
-        // Reset per-frame input accumulators, then pump SDL events (which Window
-        // forwards into Input). poll_events() returns false on quit/Escape.
-        loom::Input::new_frame();
-        if (!window.poll_events()) break;
-        loom::Input::update();
-
-        Uint64 now = SDL_GetTicks();
-        float  dt  = static_cast<float>(now - last_ticks) / 1000.f;
-        last_ticks = now;
-        dt = std::min(dt, 0.1f);
-
-        // Track the real drawable size (changes on resize / DPI moves) and map
-        // the logical resolution onto it according to the chosen scale mode.
-        int dw = window.drawable_width();
-        int dh = window.drawable_height();
-        if (dw != last_dw || dh != last_dh) {
-            game.screen_width  = dw;
-            game.screen_height = dh;
-            if (last_dw >= 0) game.on_resize(dw, dh); // skip the initial frame
-            last_dw = dw; last_dh = dh;
-        }
-        loom::ScaleResult sr =
-            loom::compute_scaling(game.scale_mode, logical_w, logical_h, dw, dh);
-        game.scene.camera.set_viewport(static_cast<int>(std::lround(sr.cam_w)),
-                                       static_cast<int>(std::lround(sr.cam_h)));
-
-        // Remap the OS pointer (window points) into logical units so that
-        // screen_to_world(mouse_position()) is correct under any scale mode / DPI.
-        int pw = dw, ph = dh;
-        SDL_GetWindowSize(window.sdl_window(), &pw, &ph);
-        loom::Vec2 mp = loom::Input::mouse_position();
-        float mlx, mly;
-        loom::window_point_to_logical(sr, dw, dh, pw, ph, mp.x, mp.y, mlx, mly);
-        loom::Input::set_mouse_position(loom::Vec2(mlx, mly));
-        // Remap touch finger positions into logical units the same way.
-        loom::Input::remap_touches(sr, dw, dh, pw, ph);
-
-        game.on_update(dt);
-
-        // Lay out the UI against the logical screen, then dispatch the pointer
-        // (firing button callbacks) using the logical-space mouse from above.
-        game.ui.layout();
-        game.ui.update_input(loom::Input::mouse_position(),
-                             loom::Input::mouse_pressed(loom::MouseButton::Left),
-                             loom::Input::mouse_down(loom::MouseButton::Left),
-                             loom::Input::mouse_released(loom::MouseButton::Left));
-
-        if (game.auto_physics) game.physics.step(dt);
-        if (game.auto_scene)   game.scene.update(dt);
-
-        renderer.begin_frame(game.clear_color);
-        renderer.set_viewport(sr.vp_x, sr.vp_y, sr.vp_w, sr.vp_h);
-        if (game.auto_scene) game.scene.draw(renderer);
-        game.on_draw();
-        // Draw the UI on top with its own fixed screen-space view-projection. The
-        // batcher captures the matrix per-batch, so the single end_frame flush
-        // renders the world and the UI in one buffer upload.
-        renderer.batcher().set_view_projection(game.ui.camera.view_projection());
-        game.ui.draw(renderer);
-        renderer.end_frame();
-
-        game.last_draw_calls = renderer.batcher().draw_calls();
-    }
-
-    game.on_stop();
-}
 
 // ── Module ────────────────────────────────────────────────────────────────────
 
@@ -569,15 +461,63 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_readwrite("camera", &loom::UICanvas::camera);
 
     // ── Scene ─────────────────────────────────────────────────────────────────
-    py::class_<loom::Scene>(m, "Scene")
+    py::classh<loom::Scene, PyScene>(m, "Scene")
         .def(py::init<>())
         .def_readwrite("camera", &loom::Scene::camera)
+        .def_property_readonly("ui", [](loom::Scene& s) -> loom::UICanvas& { return s.ui; },
+                               py::return_value_policy::reference_internal,
+                               "This scene's own screen-space UI layer.")
+        .def_property_readonly("game", [](loom::Scene& s) { return s.game; },
+                               py::return_value_policy::reference,
+                               "The Game this scene belongs to; None until it is "
+                               "handed to a SceneManager.")
         .def("add",    &loom::Scene::add)
         .def("remove", &loom::Scene::remove)
         .def("clear",  &loom::Scene::clear)
         .def("update", &loom::Scene::update)
         .def("root",   &loom::Scene::root_ptr,
-             py::return_value_policy::reference_internal);
+             py::return_value_policy::reference_internal)
+        // Lifecycle hooks — override these in a subclass.
+        .def("on_enter",  &loom::Scene::on_enter)
+        .def("on_exit",   &loom::Scene::on_exit)
+        .def("on_update", &loom::Scene::on_update, py::arg("dt"))
+        .def("on_draw",   &loom::Scene::on_draw);
+
+    // ── Transitions ───────────────────────────────────────────────────────────
+    py::classh<loom::Transition, PyTransition>(m, "Transition")
+        .def(py::init<>())
+        .def("update",     &loom::Transition::update, py::arg("dt"))
+        .def("swap_ready", &loom::Transition::swap_ready)
+        .def("done",       &loom::Transition::done);
+
+    py::classh<loom::Fade, loom::Transition>(m, "Fade")
+        .def(py::init<float, loom::Color>(),
+             py::arg("duration") = 0.4f,
+             py::arg("color")    = loom::Color::black(),
+             "Fade out to a colour, swap the scene at the midpoint, fade back in.")
+        .def_readwrite("duration", &loom::Fade::duration)
+        .def_readwrite("color",    &loom::Fade::color)
+        .def_property_readonly("alpha", &loom::Fade::alpha,
+                               "Overlay opacity right now (0 -> 1 -> 0).")
+        .def_property_readonly("elapsed", &loom::Fade::elapsed);
+
+    // ── SceneManager ──────────────────────────────────────────────────────────
+    py::class_<loom::SceneManager>(m, "SceneManager")
+        .def("switch_to", &loom::SceneManager::switch_to,
+             py::arg("scene"), py::arg("transition") = nullptr,
+             "Replace the active scene.")
+        .def("push", &loom::SceneManager::push,
+             py::arg("scene"), py::arg("transition") = nullptr,
+             "Lay a scene over the active one (pause menu). The scene below stays "
+             "alive and keeps drawing, but stops updating.")
+        .def("pop", &loom::SceneManager::pop,
+             py::arg("transition") = nullptr,
+             "Drop the top scene, revealing the one below. No-op if it is the last.")
+        .def("update", &loom::SceneManager::update, py::arg("dt"))
+        .def_property_readonly("current",       &loom::SceneManager::current)
+        .def_property_readonly("depth",         &loom::SceneManager::depth)
+        .def_property_readonly("transitioning", &loom::SceneManager::transitioning)
+        .def_property_readonly("stack",         &loom::SceneManager::stack);
 
     // ── Key enum ──────────────────────────────────────────────────────────────
     py::enum_<loom::Key>(m, "Key")
@@ -806,7 +746,11 @@ PYBIND11_MODULE(loom2d_native, m) {
     py::class_<Game, PyGame>(m, "Game")
         .def(py::init<>())
         .def_readwrite("clear_color",  &Game::clear_color)
-        .def_readwrite("scene",        &Game::scene)
+        // The active scene. Read-only: to change scenes go through `scenes`,
+        // which handles lifecycle hooks and transitions.
+        .def_property_readonly("scene",  &Game::scene_ptr)
+        .def_property_readonly("scenes", [](Game& g) -> loom::SceneManager& { return g.scenes; },
+                               py::return_value_policy::reference_internal)
         .def_readwrite("auto_physics", &Game::auto_physics)
         .def_readwrite("auto_scene",   &Game::auto_scene)
         .def_readwrite("running",      &Game::running)
@@ -831,7 +775,7 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def("on_resize", &Game::on_resize, py::arg("w"), py::arg("h"));
 
     // ── run() ─────────────────────────────────────────────────────────────────
-    m.def("run", &run_game,
+    m.def("run", &loom::run_game,
           py::arg("game"),
           py::arg("title")  = "loom2d",
           py::arg("width")  = 800,

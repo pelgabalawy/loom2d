@@ -38,9 +38,18 @@ For resolution independence: `logical_width`, `logical_height`, `scale_mode`,
 |------|---------|
 | `Node` | transform + hierarchy: `position`, `x`, `y`, `rotation`, `scale`, `visible`, `add_child`, `remove_from_parent`, `world_position` |
 | `SpriteNode(texture)` | draws a texture: `origin`, `tint`, `flip_x/y`, `set_source`, `play` — [guide](../guides/sprites.md) |
-| `Scene` | node tree + `camera`: `add`, `remove`, `clear`, `root` |
+| `Scene` | node tree + `camera` + `ui` + `game`; lifecycle `on_enter`, `on_exit`, `on_update`, `on_draw`; `add`, `remove`, `clear`, `root` — [guide](../guides/scenes.md) |
 | `Camera` | `position`, `zoom`, `rotation`, `set_viewport`, `screen_to_world`, `world_to_screen`, `visible_rect` — [guide](../guides/camera.md) |
 | `ScaleMode` | `Fit`, `Stretch`, `Expand`, `PixelPerfect` — [responsive scaling](../guides/responsive-scaling.md) |
+
+## Scenes & transitions — [guide](../guides/scenes.md)
+
+| Type | Summary |
+|------|---------|
+| `game.scenes` | the `SceneManager`: `switch_to(scene, transition=None)`, `push`, `pop`, `current`, `depth`, `stack`, `transitioning` |
+| `game.scene` | the active scene (top of the stack); read-only — change scenes via `game.scenes` |
+| `Fade(duration=0.4, color=Color.black())` | fade out, swap at the midpoint, fade back in; `alpha`, `elapsed` |
+| `Transition` | subclass to write your own: `update(dt)`, `swap_ready()`, `done()`, `draw(renderer, w, h)` |
 
 ## Animation — [guide](../guides/animation.md)
 
