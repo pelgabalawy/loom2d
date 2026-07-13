@@ -20,6 +20,7 @@ void Scene::clear() {
 }
 
 void Scene::update(float dt) {
+    on_update(dt);
     m_root->update(dt);
 }
 
@@ -27,6 +28,7 @@ void Scene::draw(Renderer& renderer) {
     // Push the camera transform to the GPU once per frame, then submit sprites.
     renderer.batcher().set_view_projection(camera.view_projection());
     m_root->draw(renderer, camera);
+    on_draw();
 }
 
 } // namespace loom

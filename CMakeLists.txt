@@ -83,9 +83,12 @@ set(ENGINE_SOURCES
     src/graphics/camera.cpp
     src/graphics/sprite_batcher.cpp
     src/graphics/sokol_impl.cpp
+    src/core/game.cpp
     src/scene/node.cpp
     src/scene/sprite_node.cpp
     src/scene/scene.cpp
+    src/scene/scene_manager.cpp
+    src/scene/transition.cpp
     src/scene/animation.cpp
     src/scene/tilemap.cpp
     src/text/font.cpp
