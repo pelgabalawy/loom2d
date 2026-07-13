@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/pelgabalawy/loom2d/compare/v0.5.0...v0.5.1) (2026-07-13)
+
+
+### Bug Fixes
+
+* Python subclasses silently stopped updating when C++ owned them ([#15](https://github.com/pelgabalawy/loom2d/issues/15)) ([f1f0790](https://github.com/pelgabalawy/loom2d/commit/f1f079007a0f1c1ce8f6737dc142306729e15474))
+
 ## [0.5.0](https://github.com/pelgabalawy/loom2d/compare/v0.4.1...v0.5.0) (2026-07-12)
 
 
