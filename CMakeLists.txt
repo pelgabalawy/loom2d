@@ -78,12 +78,15 @@ endif()
 
 set(ENGINE_SOURCES
     src/platform/window.cpp
+    src/platform/paths.cpp
     src/graphics/renderer.cpp
     src/graphics/texture.cpp
     src/graphics/camera.cpp
     src/graphics/sprite_batcher.cpp
     src/graphics/sokol_impl.cpp
     src/core/game.cpp
+    src/core/timers.cpp
+    src/core/tween.cpp
     src/scene/node.cpp
     src/scene/sprite_node.cpp
     src/scene/scene.cpp

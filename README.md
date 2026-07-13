@@ -39,10 +39,12 @@ and assets in native code that compiles for every target platform.
 - 🕹️ **Input** — keyboard, mouse + wheel, **gamepad** (hot-plug, rumble), **touch**, **text input**
 - 🧩 **UI toolkit** — screen-space panels, buttons, labels, images & grids with anchored layout, hover/click & focus
 - 📐 **Responsive** — logical resolution + letterbox/stretch/expand scale modes, HiDPI
+- ⏱️ **Timers & tweens** — `after`/`every` scheduling, 28 easing curves, `tweens.to(sprite, "x", 400, 0.6)`
+- 💾 **Save/load** — JSON saves, written atomically, in the right per-user directory on every OS
 - ⚙️ **Physics** — [Box2D v3](https://github.com/erincatto/box2d) with a pixel-space API + collision events
 - 🔊 **Audio** — SFX + streaming music via [miniaudio](https://github.com/mackron/miniaudio)
 - 🖼️ **Assets** — ref-counted texture cache (PNG/JPG via stb_image)
-- 🧪 **Tested** — 207 C++ (GoogleTest) + 198 Python (pytest) unit tests
+- 🧪 **Tested** — 240 C++ (GoogleTest) + 226 Python (pytest) unit tests
 - 📦 **Zero manual deps** — CMake fetches and builds everything for you
 
 ## Status
@@ -55,12 +57,11 @@ and assets in native code that compiles for every target platform.
 | Android / iOS | ⏳ Planned |
 
 > **Working today on desktop.** GPU sprite batching (sokol_gfx), tilemaps, text
-> rendering, a screen-space UI toolkit, scene management with transitions, audio,
-> a Box2D-v3 physics engine with collision events, responsive resolution scaling,
-> and full input breadth (gamepad, touch, mouse-wheel, text input) are all in and
-> tested. The rest of the core game systems (timers/tweens/save-load), a
-> LÖVE-style shader pipeline, and mobile targets are next — see the
-> [Roadmap](#roadmap).
+> rendering, a screen-space UI toolkit, scene management with transitions, timers,
+> tweens, save/load, audio, a Box2D-v3 physics engine with collision events,
+> responsive resolution scaling, and full input breadth (gamepad, touch,
+> mouse-wheel, text input) are all in and tested. A LÖVE-style shader pipeline,
+> effects, and mobile targets are next — see the [Roadmap](#roadmap).
 
 ## 📖 Documentation
 
@@ -142,6 +143,7 @@ See [`examples/`](examples/) for more:
 | [`input_demo`](examples/input_demo) | Gamepad, touch, mouse-wheel & text input |
 | [`ui_demo`](examples/ui_demo) | Panels, buttons, labels, images & grids over a scrolling world |
 | [`scenes`](examples/scenes) | Menu → level → pause: scene states, the stack, fade transitions |
+| [`timers_tweens`](examples/timers_tweens) | An easing gallery: timers, tweens & a save file that survives restarts |
 | [`tetris_nes`](examples/tetris_nes) | A full NES Tetris clone — fixed 60 Hz logic, gamepad, UI toggles, procedural audio |
 
 ## Architecture
@@ -174,12 +176,13 @@ A deeper diagram and layer-by-layer breakdown live in
 - ✅ **Input breadth** — gamepad (hot-plug, rumble), touch, mouse-wheel, text input
 - ✅ **UI toolkit** — screen-space panels, buttons, labels, images & grids; anchored layout, hover/click, focus
 - ✅ **Scene management** — scenes as game states (menu/level/pause), a scene stack, fade transitions
+- ✅ **Core game systems** — timers/scheduler, tweens with 28 easing curves, atomic JSON save/load
 
 **Next up — toward a polished, shippable game:**
 
-1. **Core game systems** — timers, tweens, save/load
-2. **LÖVE-style rendering** — custom shaders, blend modes, render-to-texture canvases
-3. **Effects** — particles + lighting
+1. **LÖVE-style rendering** — custom shaders, blend modes, render-to-texture canvases
+2. **Effects** — particles + lighting
+3. **Unicode text** — the font atlas is ASCII-only today
 4. **Desktop standalone packaging**, then **Android → iOS**
 
 Each platform has its own build-→test-→fix verification pass.

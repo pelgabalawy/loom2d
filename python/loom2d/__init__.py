@@ -49,6 +49,12 @@ from loom2d_native import (
     # Animation
     Animation,
     AnimationFrame,
+    # Timers & tweens
+    Timers,
+    Tween,
+    TweenManager,
+    Ease,
+    ease,
     # Input
     Input,
     Key,
@@ -74,6 +80,10 @@ from loom2d_native import (
     run,
 )
 
+# Save files are plain JSON, so they are written in Python rather than C++ —
+# save_dir() is the only part the OS has to answer.
+from .save import SaveFile, save_dir
+
 __all__ = [
     "Vec2", "Rect", "Color",
     "Node", "SpriteNode", "Scene", "SceneManager", "Transition", "Fade",
@@ -82,6 +92,8 @@ __all__ = [
     "Font", "TextNode", "TextAlign",
     "Widget", "Panel", "Label", "Button", "Image", "Grid", "UICanvas",
     "Animation", "AnimationFrame",
+    "Timers", "Tween", "TweenManager", "Ease", "ease",
+    "SaveFile", "save_dir",
     "Input", "Key", "MouseButton", "GamepadButton", "GamepadAxis", "TouchPoint",
     "PhysicsWorld", "PhysicsBody", "BodyType",
     "ContactPair", "SensorPair", "RaycastHit",
