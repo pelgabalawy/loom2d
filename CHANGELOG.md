@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/pelgabalawy/loom2d/compare/v0.6.0...v0.7.0) (2026-07-13)
+
+
+### Features
+
+* timers, tweens and save/load ([#19](https://github.com/pelgabalawy/loom2d/issues/19)) ([1a34bcc](https://github.com/pelgabalawy/loom2d/commit/1a34bcc6ac5143ca390abf74c7e6727b5d8accad))
+
 ## [0.6.0](https://github.com/pelgabalawy/loom2d/compare/v0.5.1...v0.6.0) (2026-07-13)
 
 
