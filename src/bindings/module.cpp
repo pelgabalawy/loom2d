@@ -80,8 +80,13 @@ public:
     void on_resize(int w, int h) override { PYBIND11_OVERRIDE(void, Game, on_resize, w, h); }
 };
 
-// Trampoline for Python Node subclasses
-class PyNode : public loom::Node {
+// Trampoline for Python Node subclasses.
+//
+// trampoline_self_life_support + py::smart_holder (below) keep the Python half
+// of a subclass alive while C++ owns the object. Without it, `scene.add(Enemy())`
+// — where Python retains no reference — lets the Python object die, and every
+// PYBIND11_OVERRIDE silently falls back to the C++ base: the node stops updating.
+class PyNode : public loom::Node, public py::trampoline_self_life_support {
 public:
     using loom::Node::Node;
     void update(float dt) override {
@@ -93,7 +98,7 @@ public:
 };
 
 // Trampoline so Python can subclass Widget and override on_click().
-class PyWidget : public loom::Widget {
+class PyWidget : public loom::Widget, public py::trampoline_self_life_support {
 public:
     using loom::Widget::Widget;
     void on_click() override { PYBIND11_OVERRIDE(void, loom::Widget, on_click); }
@@ -324,7 +329,7 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_property_readonly("path",   &loom::Texture::path);
 
     // ── Node ──────────────────────────────────────────────────────────────────
-    py::class_<loom::Node, PyNode, std::shared_ptr<loom::Node>>(m, "Node")
+    py::classh<loom::Node, PyNode>(m, "Node")
         .def(py::init<>())
         .def(py::init<std::string>())
         .def_readwrite("name",    &loom::Node::name)
@@ -351,8 +356,7 @@ PYBIND11_MODULE(loom2d_native, m) {
         });
 
     // ── SpriteNode ────────────────────────────────────────────────────────────
-    py::class_<loom::SpriteNode, loom::Node,
-               std::shared_ptr<loom::SpriteNode>>(m, "SpriteNode")
+    py::classh<loom::SpriteNode, loom::Node>(m, "SpriteNode")
         .def(py::init<std::shared_ptr<loom::Texture>>())
         .def_readwrite("tint",   &loom::SpriteNode::tint)
         .def_readwrite("origin", &loom::SpriteNode::origin)
@@ -395,8 +399,7 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def("fill", &loom::TileLayer::fill);
 
     // ── Tilemap ───────────────────────────────────────────────────────────────
-    py::class_<loom::Tilemap, loom::Node,
-               std::shared_ptr<loom::Tilemap>>(m, "Tilemap")
+    py::classh<loom::Tilemap, loom::Node>(m, "Tilemap")
         .def(py::init<int, int, int, int>(),
              py::arg("tile_w"), py::arg("tile_h"),
              py::arg("width"), py::arg("height"))
@@ -455,8 +458,7 @@ PYBIND11_MODULE(loom2d_native, m) {
                     "Greedy word-wrap helper: [start,end) byte ranges per line.");
 
     // ── TextNode ──────────────────────────────────────────────────────────────
-    py::class_<loom::TextNode, loom::Node,
-               std::shared_ptr<loom::TextNode>>(m, "TextNode")
+    py::classh<loom::TextNode, loom::Node>(m, "TextNode")
         .def(py::init<std::shared_ptr<loom::Font>, std::string>(),
              py::arg("font"), py::arg("text") = "")
         .def_readwrite("color",  &loom::TextNode::color)
@@ -470,7 +472,7 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_property_readonly("size", &loom::TextNode::size);
 
     // ── Widget (UI base) ────────────────────────────────────────────────────────
-    py::class_<loom::Widget, PyWidget, std::shared_ptr<loom::Widget>>(m, "Widget")
+    py::classh<loom::Widget, PyWidget>(m, "Widget")
         .def(py::init<>())
         .def(py::init<std::string>())
         .def_readwrite("name",      &loom::Widget::name)
@@ -493,7 +495,7 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def("on_click", &loom::Widget::on_click);
 
     // ── Panel ─────────────────────────────────────────────────────────────────
-    py::class_<loom::Panel, loom::Widget, std::shared_ptr<loom::Panel>>(m, "Panel")
+    py::classh<loom::Panel, loom::Widget>(m, "Panel")
         .def(py::init<>())
         .def(py::init<loom::Color>(), py::arg("background"))
         .def_readwrite("background",   &loom::Panel::background)
@@ -501,7 +503,7 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_readwrite("border_width", &loom::Panel::border_width);
 
     // ── Label ─────────────────────────────────────────────────────────────────
-    py::class_<loom::Label, loom::Widget, std::shared_ptr<loom::Label>>(m, "Label")
+    py::classh<loom::Label, loom::Widget>(m, "Label")
         .def(py::init<>())
         .def(py::init<std::shared_ptr<loom::Font>, std::string>(),
              py::arg("font"), py::arg("text") = "")
@@ -513,7 +515,7 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_property_readonly("font", &loom::Label::font);
 
     // ── Button ────────────────────────────────────────────────────────────────
-    py::class_<loom::Button, loom::Widget, std::shared_ptr<loom::Button>>(m, "Button")
+    py::classh<loom::Button, loom::Widget>(m, "Button")
         .def(py::init<>())
         .def(py::init<std::shared_ptr<loom::Font>, std::string>(),
              py::arg("font"), py::arg("caption") = "")
@@ -529,7 +531,7 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def("current_background", &loom::Button::current_background);
 
     // ── Image ─────────────────────────────────────────────────────────────────
-    py::class_<loom::Image, loom::Widget, std::shared_ptr<loom::Image>>(m, "Image")
+    py::classh<loom::Image, loom::Widget>(m, "Image")
         .def(py::init<>())
         .def(py::init<std::shared_ptr<loom::Texture>>(), py::arg("texture"))
         .def_readwrite("tint",   &loom::Image::tint)
@@ -538,7 +540,7 @@ PYBIND11_MODULE(loom2d_native, m) {
         .def_property_readonly("texture", &loom::Image::texture);
 
     // ── Grid ──────────────────────────────────────────────────────────────────
-    py::class_<loom::Grid, loom::Widget, std::shared_ptr<loom::Grid>>(m, "Grid")
+    py::classh<loom::Grid, loom::Widget>(m, "Grid")
         .def(py::init<>())
         .def(py::init<int, loom::Vec2>(),
              py::arg("columns"), py::arg("spacing") = loom::Vec2(0.f, 0.f))
