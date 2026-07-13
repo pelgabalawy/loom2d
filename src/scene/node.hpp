@@ -1,7 +1,9 @@
 #pragma once
 #include "math/vec2.hpp"
+#include "graphics/blend_mode.hpp"
 #include "graphics/renderer.hpp"
 #include "graphics/camera.hpp"
+#include "graphics/shader.hpp"
 #include <vector>
 #include <memory>
 #include <string>
@@ -12,6 +14,12 @@ class Node : public std::enable_shared_from_this<Node> {
 public:
     std::string name;
     bool        visible = true;
+
+    // How this node draws. They apply to the node's own pixels, not its
+    // children's — each drawable sets its own state — and mean nothing on a node
+    // that draws nothing (a plain Node used as a container).
+    std::shared_ptr<Shader> shader;                   // null = the built-in one
+    BlendMode               blend = BlendMode::Alpha;
 
     Node() = default;
     explicit Node(std::string name);
@@ -50,6 +58,13 @@ public:
     virtual void draw(Renderer& renderer, const Camera& camera);
 
 protected:
+    // Every drawable calls this before submitting geometry, so draw state can
+    // never leak from whichever node happened to draw before it.
+    void apply_draw_state(Renderer& renderer) const {
+        renderer.set_shader(shader);
+        renderer.set_blend(blend);
+    }
+
     Vec2  m_position = {0.f, 0.f};
     float m_rotation = 0.f;
     Vec2  m_scale    = {1.f, 1.f};

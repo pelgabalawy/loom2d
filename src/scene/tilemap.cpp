@@ -186,6 +186,7 @@ void Tilemap::draw(Renderer& renderer, const Camera& camera) {
     int tx1 = std::min(width  - 1, static_cast<int>(std::floor(lx1 / tile_w)));
     int ty1 = std::min(height - 1, static_cast<int>(std::floor(ly1 / tile_h)));
 
+    apply_draw_state(renderer);
     for (const auto& layer : m_layers) {
         if (!layer->visible) continue;
         Color tint = Color::white();

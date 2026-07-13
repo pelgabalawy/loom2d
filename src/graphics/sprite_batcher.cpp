@@ -45,44 +45,18 @@ SpriteQuad build_sprite_quad(Vec2 wpos, float wrot, Vec2 wscale, Vec2 origin,
     return q;
 }
 
-// ── Shader sources ──────────────────────────────────────────────────────────
+// The shader every drawable gets unless it asks for its own: sample the texture,
+// multiply by the tint. Written against the same effect() interface the game's
+// shaders use, so there is exactly one place that defines what a loom2d fragment
+// shader looks like.
+static const char* DEFAULT_EFFECT =
+    "vec4 effect(vec4 color, sampler2D tex, vec2 uv) {\n"
+    "    return texture(tex, uv) * color;\n"
+    "}\n";
 
-static const char* VS_GLCORE =
-    "#version 410\n"
-    "uniform mat4 u_mvp;\n"
-    "in vec2 a_pos;\n"
-    "in vec2 a_uv;\n"
-    "in vec4 a_color;\n"
-    "out vec2 v_uv;\n"
-    "out vec4 v_color;\n"
-    "void main(){ gl_Position = u_mvp * vec4(a_pos, 0.0, 1.0); v_uv = a_uv; v_color = a_color; }\n";
-
-static const char* FS_GLCORE =
-    "#version 410\n"
-    "uniform sampler2D tex;\n"
-    "in vec2 v_uv;\n"
-    "in vec4 v_color;\n"
-    "out vec4 frag_color;\n"
-    "void main(){ frag_color = texture(tex, v_uv) * v_color; }\n";
-
-static const char* VS_GLES3 =
-    "#version 300 es\n"
-    "uniform mat4 u_mvp;\n"
-    "in vec2 a_pos;\n"
-    "in vec2 a_uv;\n"
-    "in vec4 a_color;\n"
-    "out vec2 v_uv;\n"
-    "out vec4 v_color;\n"
-    "void main(){ gl_Position = u_mvp * vec4(a_pos, 0.0, 1.0); v_uv = a_uv; v_color = a_color; }\n";
-
-static const char* FS_GLES3 =
-    "#version 300 es\n"
-    "precision mediump float;\n"
-    "uniform sampler2D tex;\n"
-    "in vec2 v_uv;\n"
-    "in vec4 v_color;\n"
-    "out vec4 frag_color;\n"
-    "void main(){ frag_color = texture(tex, v_uv) * v_color; }\n";
+// A first frame that needs more than this grows the buffer for the next one; big
+// enough that no realistic scene (this holds ~10k sprites) ever pays that cost.
+static constexpr size_t INITIAL_VERTS = 65536;
 
 // ── SpriteBatcher ───────────────────────────────────────────────────────────
 
@@ -90,50 +64,14 @@ SpriteBatcher::~SpriteBatcher() {
     // sg_shutdown() (called by ~Renderer) frees everything; only clean up
     // explicitly if sokol is still alive when this batcher dies.
     if (m_ready && sg_isvalid()) {
-        sg_destroy_pipeline(m_pip);
-        sg_destroy_shader(m_shd);
+        for (const auto& entry : m_pipelines) sg_destroy_pipeline(entry.second);
         sg_destroy_sampler(m_smp);
         if (m_vbuf.id != SG_INVALID_ID) sg_destroy_buffer(m_vbuf);
     }
 }
 
 void SpriteBatcher::init() {
-    bool gles = (sg_query_backend() == SG_BACKEND_GLES3);
-
-    sg_shader_desc sd = {};
-    sd.vertex_func.source   = gles ? VS_GLES3 : VS_GLCORE;
-    sd.fragment_func.source = gles ? FS_GLES3 : FS_GLCORE;
-    sd.attrs[0].glsl_name = "a_pos";
-    sd.attrs[1].glsl_name = "a_uv";
-    sd.attrs[2].glsl_name = "a_color";
-    sd.uniform_blocks[0].stage  = SG_SHADERSTAGE_VERTEX;
-    sd.uniform_blocks[0].size   = sizeof(float) * 16;
-    sd.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;
-    sd.uniform_blocks[0].glsl_uniforms[0].type      = SG_UNIFORMTYPE_MAT4;
-    sd.uniform_blocks[0].glsl_uniforms[0].glsl_name = "u_mvp";
-    sd.views[0].texture.stage       = SG_SHADERSTAGE_FRAGMENT;
-    sd.views[0].texture.image_type  = SG_IMAGETYPE_2D;
-    sd.views[0].texture.sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-    sd.samplers[0].stage        = SG_SHADERSTAGE_FRAGMENT;
-    sd.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-    sd.texture_sampler_pairs[0].stage        = SG_SHADERSTAGE_FRAGMENT;
-    sd.texture_sampler_pairs[0].view_slot    = 0;
-    sd.texture_sampler_pairs[0].sampler_slot = 0;
-    sd.texture_sampler_pairs[0].glsl_name    = "tex";
-    m_shd = sg_make_shader(&sd);
-
-    sg_pipeline_desc pd = {};
-    pd.shader = m_shd;
-    pd.layout.attrs[0].format = SG_VERTEXFORMAT_FLOAT2; // a_pos
-    pd.layout.attrs[1].format = SG_VERTEXFORMAT_FLOAT2; // a_uv
-    pd.layout.attrs[2].format = SG_VERTEXFORMAT_FLOAT4; // a_color
-    pd.primitive_type = SG_PRIMITIVETYPE_TRIANGLES;
-    pd.colors[0].blend.enabled        = true;
-    pd.colors[0].blend.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA;
-    pd.colors[0].blend.dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
-    pd.colors[0].blend.src_factor_alpha = SG_BLENDFACTOR_ONE;
-    pd.colors[0].blend.dst_factor_alpha = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
-    m_pip = sg_make_pipeline(&pd);
+    m_default_shader = Shader::from_source(DEFAULT_EFFECT);
 
     sg_sampler_desc smp = {};
     smp.min_filter = SG_FILTER_NEAREST;
@@ -143,14 +81,45 @@ void SpriteBatcher::init() {
     m_smp = sg_make_sampler(&smp);
 
     m_ready = true;
-    ensure_capacity(4096);
+    ensure_capacity(INITIAL_VERTS);
+}
+
+sg_pipeline SpriteBatcher::pipeline_for(const Shader* shader, BlendMode blend,
+                                        bool offscreen) {
+    const Shader* shd = shader ? shader : m_default_shader.get();
+    const uint64_t key = (static_cast<uint64_t>(shd->handle().id) << 32)
+                       | (static_cast<uint64_t>(blend) << 1)
+                       | (offscreen ? 1u : 0u);
+
+    auto it = m_pipelines.find(key);
+    if (it != m_pipelines.end()) return it->second;
+
+    sg_pipeline_desc pd = {};
+    pd.shader = shd->handle();
+    pd.layout.attrs[0].format = SG_VERTEXFORMAT_FLOAT2; // a_pos
+    pd.layout.attrs[1].format = SG_VERTEXFORMAT_FLOAT2; // a_uv
+    pd.layout.attrs[2].format = SG_VERTEXFORMAT_FLOAT4; // a_color
+    pd.primitive_type  = SG_PRIMITIVETYPE_TRIANGLES;
+    pd.colors[0].blend = blend_state_for(blend);
+    if (offscreen) {
+        // A canvas is colour-only, and sokol requires the pipeline's attachment
+        // formats to match the pass it runs in — hence a separate pipeline for
+        // the same shader when it draws into a canvas rather than the window.
+        pd.colors[0].pixel_format = SG_PIXELFORMAT_RGBA8;
+        pd.depth.pixel_format     = SG_PIXELFORMAT_NONE;
+        pd.color_count            = 1;
+    }
+
+    sg_pipeline pip = sg_make_pipeline(&pd);
+    m_pipelines.emplace(key, pip);
+    return pip;
 }
 
 void SpriteBatcher::ensure_capacity(size_t need) {
     if (m_vbuf.id != SG_INVALID_ID && need <= m_capacity) return;
     if (m_vbuf.id != SG_INVALID_ID) sg_destroy_buffer(m_vbuf);
 
-    size_t cap = m_capacity ? m_capacity : 4096;
+    size_t cap = m_capacity ? m_capacity : INITIAL_VERTS;
     while (cap < need) cap *= 2;
 
     sg_buffer_desc bd = {};
@@ -161,24 +130,91 @@ void SpriteBatcher::ensure_capacity(size_t need) {
     m_capacity = cap;
 }
 
+void SpriteBatcher::begin_frame() {
+    // Resizing the buffer is only safe between frames, so a frame that needed
+    // more room than it had (its overflowing draws were dropped by sokol) grows
+    // the buffer here, and the next frame renders in full.
+    if (m_frame_verts > m_capacity) ensure_capacity(m_frame_verts);
+    m_frame_verts = 0;
+    m_draw_calls  = 0;
+}
+
+void SpriteBatcher::begin_pass(bool offscreen) {
+    m_offscreen = offscreen;
+    m_shader.reset();
+    m_blend     = BlendMode::Alpha;
+    m_pip_dirty = true;
+}
+
 void SpriteBatcher::set_view_projection(const Mat4& vp) {
     m_vp = vp;
     ++m_gen; // force a new batch so geometry isn't merged across a vp change
 }
 
+void SpriteBatcher::set_shader(const std::shared_ptr<Shader>& shader) {
+    // Every sprite in the scene calls this every frame, nearly always with the
+    // value already set. Comparing the raw pointers first keeps the common case
+    // free of shared_ptr refcount traffic (atomics, once per sprite per frame).
+    if (shader.get() == m_shader.get()) return;
+    m_shader    = shader;
+    m_pip_dirty = true;
+}
+
+void SpriteBatcher::set_blend(BlendMode blend) {
+    if (blend == m_blend) return;
+    m_blend     = blend;
+    m_pip_dirty = true;
+}
+
+sg_pipeline SpriteBatcher::current_pipeline() {
+    if (m_pip_dirty) {
+        m_pip       = pipeline_for(m_shader.get(), m_blend, m_offscreen);
+        m_pip_dirty = false;
+    }
+    return m_pip;
+}
+
 void SpriteBatcher::submit(const Texture& texture, const SpriteQuad& q,
                            const Color& tint) {
-    sg_view view = texture.view();
-    static const int idx[6] = {0, 1, 2, 0, 2, 3}; // two triangles of TL,TR,BR,BL
+    const sg_view     view = texture.view();
+    const sg_pipeline pip  = current_pipeline();
+    const uint32_t    rev  = m_shader ? m_shader->revision() : 0;
+    static const int  idx[6] = {0, 1, 2, 0, 2, 3}; // two triangles of TL,TR,BR,BL
 
-    if (!m_batches.empty() && m_batches.back().view.id == view.id
-                           && m_batches.back().gen == m_gen) {
-        m_batches.back().count += 6;
-    } else {
-        m_batches.push_back({view, static_cast<int>(m_verts.size()), 6, m_vp, m_gen});
+    bool merged = false;
+    if (!m_batches.empty()) {
+        Batch& b = m_batches.back();
+        // A change of uniform values (a new revision) has to break the batch:
+        // the values are baked in per draw call, so quads drawn with different
+        // ones can't share it.
+        merged = b.pip.id == pip.id && b.view.id == view.id && b.gen == m_gen
+              && b.shader == m_shader && b.shader_rev == rev;
+        if (merged) b.count += 6;
     }
+    if (!merged) {
+        // Y-flip for canvases: OpenGL writes the top of clip space to the LAST
+        // row of a render target, so a canvas drawn with the normal projection
+        // comes out upside-down when it is later sampled as a texture (where we
+        // treat v=0 as the top row). Negating clip-space Y for offscreen passes
+        // stores the image the right way up, which means a canvas texture then
+        // behaves exactly like a loaded one everywhere else.
+        const Mat4 vp = m_offscreen ? Mat4::scale(1.f, -1.f, 1.f) * m_vp : m_vp;
+
+        Batch b;
+        b.pip        = pip;
+        b.view       = view;
+        b.start      = static_cast<int>(m_verts.size());
+        b.count      = 6;
+        b.vp         = vp;
+        b.gen        = m_gen;
+        b.shader     = m_shader;
+        b.shader_rev = rev;
+        if (m_shader) b.uniforms = m_shader->uniform_data();
+        m_batches.push_back(std::move(b));
+    }
+
     for (int i = 0; i < 6; ++i) {
-        int k = idx[i];
+        const int k = idx[i];
         m_verts.push_back({ q.pos[k].x, q.pos[k].y, q.uv[k][0], q.uv[k][1],
                             tint.r, tint.g, tint.b, tint.a });
     }
@@ -187,25 +223,41 @@ void SpriteBatcher::submit(const Texture& texture, const SpriteQuad& q,
 void SpriteBatcher::flush() {
     if (m_verts.empty()) return;
 
-    ensure_capacity(m_verts.size());
-    sg_range data{ m_verts.data(), m_verts.size() * sizeof(Vertex) };
-    sg_update_buffer(m_vbuf, &data);
+    // Append rather than update: a frame that renders into one or more canvases
+    // before the window flushes the batcher once per pass, and sokol allows only
+    // a single sg_update_buffer per buffer per frame.
+    const sg_range data{ m_verts.data(), m_verts.size() * sizeof(Vertex) };
 
-    sg_apply_pipeline(m_pip);
+    // Appending past the end of the buffer is a validation failure that aborts
+    // the process, not something sokol shrugs off — so when this frame wants
+    // more room than it has, skip the upload entirely. begin_frame() sees how
+    // much was asked for, grows the buffer, and the next frame draws in full:
+    // one dropped frame the first time a scene gets bigger than any before it.
+    const bool fits = !sg_query_buffer_will_overflow(m_vbuf, data.size);
+    m_frame_verts += m_verts.size();
 
-    for (const Batch& b : m_batches) {
-        sg_bindings bind = {};
-        bind.vertex_buffers[0]        = m_vbuf;
-        bind.vertex_buffer_offsets[0] = b.start * static_cast<int>(sizeof(Vertex));
-        bind.views[0]                 = b.view;
-        bind.samplers[0]              = m_smp;
-        sg_apply_bindings(&bind);
-        sg_range vp_range{ b.vp.m.data(), sizeof(float) * 16 };
-        sg_apply_uniforms(0, &vp_range);
-        sg_draw(0, b.count, 1);
+    if (fits) {
+        const int base = sg_append_buffer(m_vbuf, &data);
+        for (const Batch& b : m_batches) {
+            sg_bindings bind = {};
+            bind.vertex_buffers[0]        = m_vbuf;
+            bind.vertex_buffer_offsets[0] = base + b.start * static_cast<int>(sizeof(Vertex));
+            bind.views[0]                 = b.view;
+            bind.samplers[0]              = m_smp;
+
+            sg_apply_pipeline(b.pip);
+            sg_apply_bindings(&bind);
+            const sg_range vp_range{ b.vp.m.data(), sizeof(float) * 16 };
+            sg_apply_uniforms(0, &vp_range);
+            if (!b.uniforms.empty()) {
+                const sg_range u_range{ b.uniforms.data(), b.uniforms.size() };
+                sg_apply_uniforms(1, &u_range);
+            }
+            sg_draw(0, b.count, 1);
+        }
+        m_draw_calls += static_cast<int>(m_batches.size());
     }
 
-    m_draw_calls += static_cast<int>(m_batches.size());
     m_verts.clear();
     m_batches.clear();
 }

@@ -19,7 +19,8 @@ For full explanations and examples, follow the links to the guides.
 
 `scene`, `scenes`, `ui`, `timers`, `tweens`, `physics`, `audio`, `assets`,
 `clear_color`, `running`, `auto_physics`, `auto_scene`, `auto_timers`,
-`auto_tweens`, `last_draw_calls`. See [The Game Loop](../getting-started/game-loop.md).
+`auto_tweens`, `last_draw_calls`, `post_process`, `render_to_canvas`.
+See [The Game Loop](../getting-started/game-loop.md).
 
 For resolution independence: `logical_width`, `logical_height`, `scale_mode`,
 `screen_width`, `screen_height`, and the `on_resize(w, h)` hook — see
@@ -144,3 +145,15 @@ parent), plus `visible`, `enabled`, `add_child`, and read-only `hovered`,
 |------|---------|
 | `AssetManager` | `texture(path)` (cached), `clear` |
 | `Texture` | `width`, `height`, `path` |
+
+## Rendering — [guide](../guides/shaders.md)
+
+| Type | Summary |
+|------|---------|
+| `Shader(source)` | a GLSL `effect()` function; `set(name, value)`, `has(name)`, `uniforms`. Needs a live window — build it in `on_start()` |
+| `BlendMode` | `Alpha` (default), `Add`, `Multiply`, `Screen`, `Replace` |
+| `Canvas(w, h)` | off-screen render target: `texture`, `clear_color`, `width`, `height`, `resize` |
+
+Every drawable (`SpriteNode`, `TextNode`, `Tilemap`, `Widget` and friends) carries
+`shader` and `blend`. On `Game`: `post_process` (a shader over the whole frame)
+and `render_to_canvas(canvas, root, camera=None)`.

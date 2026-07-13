@@ -5,6 +5,7 @@
 #include "math/vec2.hpp"
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
 
 namespace loom {
 
@@ -13,9 +14,41 @@ Game::Game() {
     scenes.set_game(this);
 }
 
+Renderer& Game::renderer() {
+    if (!m_renderer) {
+        throw std::runtime_error(
+            "game.renderer is only available while the game is running — "
+            "use it from on_start() onwards, not before run()");
+    }
+    return *m_renderer;
+}
+
+void Game::render_to_canvas(Canvas& canvas, Node& root) {
+    // Default camera: the canvas's own pixel space, (0,0) at its top-left —
+    // the same convention as the UI layer, so laying out by hand is predictable.
+    Camera camera;
+    camera.set_viewport(canvas.width(), canvas.height());
+    camera.set_position(Vec2(canvas.width() * 0.5f, canvas.height() * 0.5f));
+    render_to_canvas(canvas, root, camera);
+}
+
+void Game::render_to_canvas(Canvas& canvas, Node& root, const Camera& camera) {
+    Renderer& r = renderer();
+    r.begin_pass(&canvas, canvas.clear_color); // throws if a pass is already open
+    r.batcher().set_view_projection(camera.view_projection());
+    root.draw(r, camera);
+    r.end_pass();
+}
+
 void run_game(Game& game, const std::string& title, int width, int height) {
     Window   window(title, width, height);
     Renderer renderer(window); // sets up sokol_gfx
+    game.m_renderer = &renderer;
+
+    // Only created if the game actually sets a post_process shader; kept at the
+    // drawable size from then on. Declared after the Renderer so it is destroyed
+    // before sokol shuts down.
+    std::shared_ptr<Canvas> screen_canvas;
 
     // Resolve the logical/design resolution: default to the initial window size.
     int logical_w = game.logical_width  > 0 ? game.logical_width  : width;
@@ -76,6 +109,10 @@ void run_game(Game& game, const std::string& title, int width, int height) {
         // Remap touch finger positions into logical units the same way.
         Input::remap_touches(sr, dw, dh, pw, ph);
 
+        // Open the frame before on_update, because a game may render into a
+        // canvas from there and those passes belong to this frame's GPU buffer.
+        renderer.begin_frame();
+
         game.on_update(dt);
 
         // Lay out both UI layers, then dispatch the pointer using the logical-space
@@ -114,23 +151,54 @@ void run_game(Game& game, const std::string& title, int width, int height) {
         if (game.auto_physics) game.physics.step(dt);
         if (game.auto_scene)   game.scenes.update(dt);
 
-        renderer.begin_frame(game.clear_color);
+        // With a screen shader, the frame is drawn into a canvas the size of the
+        // window and that canvas is then drawn to the window through the shader.
+        Canvas* target = nullptr;
+        if (game.post_process) {
+            if (!screen_canvas) screen_canvas = Canvas::create(dw, dh);
+            else                screen_canvas->resize(dw, dh);
+            screen_canvas->clear_color = game.clear_color;
+            target = screen_canvas.get();
+        }
+
+        renderer.begin_pass(target, game.clear_color);
         renderer.set_viewport(sr.vp_x, sr.vp_y, sr.vp_w, sr.vp_h);
         if (game.auto_scene) game.scenes.draw(renderer);
         game.on_draw();
         // Draw the game's UI on top with its own fixed screen-space view-projection.
-        // The batcher captures the matrix per-batch, so the single end_frame flush
-        // renders the world and the UI in one buffer upload.
+        // The batcher captures the matrix per-batch, so a single flush renders the
+        // world and the UI from one buffer upload.
         renderer.batcher().set_view_projection(game.ui.camera.view_projection());
         game.ui.draw(renderer);
         // A transition covers everything, including the UI.
         game.scenes.draw_transition(renderer);
+        renderer.end_pass();
+
+        if (target) {
+            // Second pass: the finished frame, as one full-screen quad, through
+            // the game's shader. Device pixels — the letterboxing has already
+            // been baked into the canvas.
+            Camera screen;
+            screen.set_viewport(dw, dh);
+            screen.set_position(Vec2(dw * 0.5f, dh * 0.5f));
+
+            renderer.begin_pass(nullptr, Color::black());
+            renderer.batcher().set_view_projection(screen.view_projection());
+            renderer.set_shader(game.post_process);
+            renderer.set_blend(BlendMode::Replace); // the quad owns every pixel
+            renderer.draw_texture(*target->texture(),
+                                  Rect(0.f, 0.f, static_cast<float>(dw),
+                                       static_cast<float>(dh)));
+            renderer.end_pass();
+        }
+
         renderer.end_frame();
 
         game.last_draw_calls = renderer.batcher().draw_calls();
     }
 
     game.on_stop();
+    game.m_renderer = nullptr; // the Renderer dies with this function
 }
 
 } // namespace loom

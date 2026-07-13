@@ -1,4 +1,5 @@
 #include "ui/widget.hpp"
+#include "graphics/renderer.hpp"
 #include <algorithm>
 
 namespace loom {
@@ -76,6 +77,11 @@ bool Widget::is_in_subtree(const Widget* target) const {
 void Widget::draw(Renderer& renderer) {
     if (!visible) return;
     draw_children(renderer);
+}
+
+void Widget::apply_draw_state(Renderer& renderer) const {
+    renderer.set_shader(shader);
+    renderer.set_blend(blend);
 }
 
 void Widget::draw_children(Renderer& renderer) {

@@ -60,4 +60,31 @@ std::shared_ptr<Texture> Texture::from_memory(const unsigned char* rgba,
     return std::shared_ptr<Texture>(new Texture(img, view, width, height, ""));
 }
 
+std::shared_ptr<Texture> Texture::render_target(int width, int height) {
+    if (width <= 0 || height <= 0) {
+        throw std::runtime_error("Texture::render_target: size must be positive");
+    }
+
+    sg_image_desc desc = {};
+    desc.usage.color_attachment = true; // ... so a pass can render into it
+    desc.width        = width;
+    desc.height       = height;
+    desc.pixel_format = SG_PIXELFORMAT_RGBA8;
+
+    sg_image img = sg_make_image(&desc);
+    if (sg_query_image_state(img) != SG_RESOURCESTATE_VALID) {
+        throw std::runtime_error("Texture::render_target: sg_make_image failed");
+    }
+
+    sg_view_desc vdesc = {};
+    vdesc.texture.image = img;
+    sg_view view = sg_make_view(&vdesc);
+    if (sg_query_view_state(view) != SG_RESOURCESTATE_VALID) {
+        sg_destroy_image(img);
+        throw std::runtime_error("Texture::render_target: sg_make_view failed");
+    }
+
+    return std::shared_ptr<Texture>(new Texture(img, view, width, height, ""));
+}
+
 } // namespace loom

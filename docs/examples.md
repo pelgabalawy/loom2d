@@ -73,6 +73,16 @@ it's the fastest way to confirm the physics engine works on a fresh install:
 python examples/physics_events/main.py
 ```
 
+### shaders — custom GLSL, blend modes and canvases
+
+The five [blend modes](guides/shaders.md#blend-modes) side by side, a sprite drawn
+through a custom GLSL `effect()`, a [canvas](guides/shaders.md#canvases) rendered
+off-screen and drawn back as a texture, and a CRT screen shader on the space bar.
+
+```bash
+python examples/shaders/main.py
+```
+
 ### stress_test — see the batcher work
 
 Pushes thousands of sprites through the [GPU batcher](guides/sprites.md#performance-gpu-batching)

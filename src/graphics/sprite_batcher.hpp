@@ -4,6 +4,11 @@
 #include "math/rect.hpp"
 #include "math/mat4.hpp"
 #include "graphics/color.hpp"
+#include "graphics/blend_mode.hpp"
+#include "graphics/shader.hpp"
+#include <cstdint>
+#include <memory>
+#include <unordered_map>
 #include <vector>
 
 namespace loom {
@@ -24,8 +29,9 @@ SpriteQuad build_sprite_quad(Vec2 world_pos, float world_rot, Vec2 world_scale,
                              bool flip_x, bool flip_y);
 
 // Batches textured quads into as few draw calls as possible: consecutive quads
-// sharing a texture are merged, so a whole tilemap on one tileset is a single
-// draw call. Draw order is preserved (painter's algorithm — correct for 2D alpha).
+// sharing a texture and draw state are merged, so a whole tilemap on one tileset
+// is a single draw call. Draw order is preserved (painter's algorithm — correct
+// for 2D alpha).
 class SpriteBatcher {
 public:
     SpriteBatcher() = default;
@@ -35,41 +41,76 @@ public:
     void init();
 
     // Set the view-projection applied to subsequently-submitted geometry. May be
-    // changed mid-frame (e.g. world camera, then a fixed screen-space UI camera);
-    // each change starts a new batch so a single flush can mix both spaces. The
-    // matrix is applied per-batch as a uniform, so only one buffer upload is
-    // needed per frame (sokol forbids updating a buffer twice in a frame).
+    // changed mid-pass (e.g. world camera, then a fixed screen-space UI camera);
+    // each change starts a new batch so one flush can mix both spaces.
     void set_view_projection(const Mat4& vp);
+
+    // ── Draw state ──────────────────────────────────────────────────────────
+    // Applied to every quad submitted from here on. Each drawable sets both at
+    // the top of its draw(), so state never leaks from one drawable to the next.
+    // Both are called once per drawable — including once per sprite in a 10k
+    // sprite scene — so both take the fast path out when nothing has changed.
+    void set_shader(const std::shared_ptr<Shader>& shader); // null = built-in
+    void set_blend(BlendMode blend);
 
     void submit(const Texture& texture, const SpriteQuad& quad, const Color& tint);
 
-    // Upload and emit all queued geometry. Called once per frame by the Renderer.
+    // ── Frame / pass lifecycle (driven by the Renderer) ──────────────────────
+    // Once per frame, outside any pass: grow the vertex buffer if last frame
+    // needed more than it holds, and reset the per-frame counters.
+    void begin_frame();
+    // Once per pass, just inside it. `offscreen` picks pipelines that match a
+    // canvas (no depth attachment) and flips Y — see the note in the .cpp.
+    void begin_pass(bool offscreen);
+    // Upload and emit everything queued for the current pass.
     void flush();
 
-    // Zero the per-frame draw-call counter (Renderer calls this at begin_frame).
-    void reset_draw_calls() { m_draw_calls = 0; }
-    int  draw_calls() const { return m_draw_calls; } // counted by the last flush
+    int draw_calls() const { return m_draw_calls; } // accumulated over the frame
 
 private:
     struct Vertex { float x, y, u, v, r, g, b, a; };
-    // start/count in vertices; vp captured when the batch opens; gen distinguishes
-    // identical-texture runs submitted under different view-projections.
-    struct Batch  { sg_view view; int start; int count; Mat4 vp; unsigned gen; };
 
-    void ensure_capacity(size_t vert_count);
+    // start/count are in vertices. The shared_ptr keeps a shader alive until its
+    // draw actually happens, even if the game drops its last reference mid-frame.
+    struct Batch {
+        sg_pipeline             pip;
+        sg_view                 view;
+        int                     start;
+        int                     count;
+        Mat4                    vp;
+        unsigned                gen;
+        std::shared_ptr<Shader> shader;
+        uint32_t                shader_rev;
+        std::vector<uint8_t>    uniforms; // snapshot taken when the batch opened
+    };
 
-    Mat4                m_vp  = Mat4::identity(); // current view-projection
-    unsigned            m_gen = 0;               // bumps on each set_view_projection
+    // Pipelines are cached per (shader, blend mode, render-target kind) and live
+    // as long as the batcher. The lookup is a hash of all three, so it is done
+    // only when the draw state actually changes — never per sprite.
+    sg_pipeline pipeline_for(const Shader* shader, BlendMode blend, bool offscreen);
+    sg_pipeline current_pipeline(); // resolves and caches on demand
+    void        ensure_capacity(size_t vert_count);
+
+    Mat4                    m_vp   = Mat4::identity();
+    unsigned                m_gen  = 0;    // bumps on each set_view_projection
+    std::shared_ptr<Shader> m_shader;      // current draw state
+    BlendMode               m_blend = BlendMode::Alpha;
+    bool                    m_offscreen = false;
+    sg_pipeline             m_pip = {};    // pipeline for the state above
+    bool                    m_pip_dirty = true;
+
     std::vector<Vertex> m_verts;
     std::vector<Batch>  m_batches;
-    int                 m_draw_calls = 0;
+    int                 m_draw_calls  = 0;
+    size_t              m_frame_verts = 0; // appended so far this frame
 
-    sg_buffer   m_vbuf = {};
-    sg_pipeline m_pip  = {};
-    sg_shader   m_shd  = {};
-    sg_sampler  m_smp  = {};
-    size_t      m_capacity = 0; // vertices the GPU buffer can hold
-    bool        m_ready = false;
+    std::shared_ptr<Shader> m_default_shader;
+    std::unordered_map<uint64_t, sg_pipeline> m_pipelines;
+
+    sg_buffer  m_vbuf = {};
+    sg_sampler m_smp  = {};
+    size_t     m_capacity = 0; // vertices the GPU buffer can hold
+    bool       m_ready = false;
 };
 
 } // namespace loom

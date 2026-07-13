@@ -36,6 +36,7 @@ and assets in native code that compiles for every target platform.
 - 🧱 **Scene graph** — nodes with parent/child transforms, sprites, animations
 - 🎬 **Scenes** — menu/level/pause as swappable game states, a scene stack & fade transitions
 - 🎨 **GPU rendering** — sokol_gfx sprite batcher, tilemaps with culling, TTF text
+- ✨ **Shaders** — custom GLSL per sprite/widget, blend modes, render-to-texture canvases, whole-frame screen shaders
 - 🕹️ **Input** — keyboard, mouse + wheel, **gamepad** (hot-plug, rumble), **touch**, **text input**
 - 🧩 **UI toolkit** — screen-space panels, buttons, labels, images & grids with anchored layout, hover/click & focus
 - 📐 **Responsive** — logical resolution + letterbox/stretch/expand scale modes, HiDPI
@@ -44,7 +45,7 @@ and assets in native code that compiles for every target platform.
 - ⚙️ **Physics** — [Box2D v3](https://github.com/erincatto/box2d) with a pixel-space API + collision events
 - 🔊 **Audio** — SFX + streaming music via [miniaudio](https://github.com/mackron/miniaudio)
 - 🖼️ **Assets** — ref-counted texture cache (PNG/JPG via stb_image)
-- 🧪 **Tested** — 240 C++ (GoogleTest) + 226 Python (pytest) unit tests
+- 🧪 **Tested** — 260 C++ (GoogleTest) + 237 Python (pytest) unit tests
 - 📦 **Zero manual deps** — CMake fetches and builds everything for you
 
 ## Status
@@ -56,12 +57,13 @@ and assets in native code that compiles for every target platform.
 | Linux | 🚧 Build scripts ready — verification pending |
 | Android / iOS | ⏳ Planned |
 
-> **Working today on desktop.** GPU sprite batching (sokol_gfx), tilemaps, text
-> rendering, a screen-space UI toolkit, scene management with transitions, timers,
-> tweens, save/load, audio, a Box2D-v3 physics engine with collision events,
-> responsive resolution scaling, and full input breadth (gamepad, touch,
-> mouse-wheel, text input) are all in and tested. A LÖVE-style shader pipeline,
-> effects, and mobile targets are next — see the [Roadmap](#roadmap).
+> **Working today on desktop.** GPU sprite batching (sokol_gfx), a LÖVE-style
+> rendering pipeline (custom GLSL shaders, blend modes, render-to-texture canvases,
+> screen shaders), tilemaps, text rendering, a screen-space UI toolkit, scene
+> management with transitions, timers, tweens, save/load, audio, a Box2D-v3 physics
+> engine with collision events, responsive resolution scaling, and full input
+> breadth (gamepad, touch, mouse-wheel, text input) are all in and tested.
+> Effects and mobile targets are next — see the [Roadmap](#roadmap).
 
 ## 📖 Documentation
 
@@ -177,13 +179,13 @@ A deeper diagram and layer-by-layer breakdown live in
 - ✅ **UI toolkit** — screen-space panels, buttons, labels, images & grids; anchored layout, hover/click, focus
 - ✅ **Scene management** — scenes as game states (menu/level/pause), a scene stack, fade transitions
 - ✅ **Core game systems** — timers/scheduler, tweens with 28 easing curves, atomic JSON save/load
+- ✅ **LÖVE-style rendering** — custom GLSL shaders, 5 blend modes, render-to-texture canvases, whole-frame screen shaders
 
 **Next up — toward a polished, shippable game:**
 
-1. **LÖVE-style rendering** — custom shaders, blend modes, render-to-texture canvases
-2. **Effects** — particles + lighting
-3. **Unicode text** — the font atlas is ASCII-only today
-4. **Desktop standalone packaging**, then **Android → iOS**
+1. **Effects** — particles + lighting
+2. **Unicode text** — the font atlas is ASCII-only today
+3. **Desktop standalone packaging**, then **Android → iOS**
 
 Each platform has its own build-→test-→fix verification pass.
 

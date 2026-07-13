@@ -74,6 +74,7 @@ nav:
       - Physics Events: guides/physics-events.md
       - Text & Fonts: guides/text.md
       - UI Toolkit: guides/ui.md
+      - Shaders & Blend Modes: guides/shaders.md
       - Audio: guides/audio.md
       - Assets: guides/assets.md
       - Saving & Loading: guides/saving.md

@@ -75,6 +75,10 @@ from loom2d_native import (
     # Assets
     AssetManager,
     Texture,
+    # Rendering
+    Shader,
+    Canvas,
+    BlendMode,
     # Engine entry point
     Game,
     run,
@@ -99,5 +103,6 @@ __all__ = [
     "ContactPair", "SensorPair", "RaycastHit",
     "AudioEngine", "SoundHandle",
     "AssetManager", "Texture",
+    "Shader", "Canvas", "BlendMode",
     "Game", "run",
 ]
