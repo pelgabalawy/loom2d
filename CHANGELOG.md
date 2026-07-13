@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/pelgabalawy/loom2d/compare/v0.5.1...v0.6.0) (2026-07-13)
+
+
+### Features
+
+* scene management -- scenes as game states, a stack, and transitions ([#17](https://github.com/pelgabalawy/loom2d/issues/17)) ([6d379d0](https://github.com/pelgabalawy/loom2d/commit/6d379d034f62764505e1424fa01a23f7331d795e))
+
 ## [0.5.1](https://github.com/pelgabalawy/loom2d/compare/v0.5.0...v0.5.1) (2026-07-13)
 
 
